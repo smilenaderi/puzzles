@@ -97,3 +97,15 @@ p, h1, h2, h3, div, span, button {
     color: #ef4444;
     animation: heartBeat 0.5s ease-out;
 }
+.comments-list {
+    scrollbar-width: thin;
+}
+
+.comments-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.comments-list::-webkit-scrollbar-thumb {
+    background-color: #d6d3d1;
+    border-radius: 9999px;
+}

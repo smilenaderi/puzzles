@@ -1,5 +1,18 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, updateDoc, increment, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc,
+    increment,
+    setDoc,
+    collection,
+    addDoc,
+    query,
+    where,
+    getDocs,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { problemVisuals, getIcon } from './visuals.js';
 
 // --- FIREBASE CONFIG ---
@@ -45,12 +58,12 @@ filterContainer.addEventListener('click', (e) => {
         // Update Active Class
         document.querySelectorAll('.filter-btn').forEach(b => {
             b.classList.remove('active-filter', 'bg-stone-900', 'text-white');
-            if(!b.dataset.filter.includes('liked')) b.classList.add('text-stone-500');
+            if (!b.dataset.filter.includes('liked')) b.classList.add('text-stone-500');
         });
-        
+
         e.target.classList.add('active-filter');
         e.target.classList.remove('text-stone-500'); // Remove gray text if active
-        
+
         state.currentFilter = e.target.dataset.filter;
         renderFeed();
     }
@@ -69,18 +82,18 @@ async function fetchLikes(id) {
         if (docSnap.exists()) {
             updateLikeUI(id, docSnap.data().count);
         }
-    } catch(e) { /* silent fail for demo/offline */ }
+    } catch (e) {
+        /* silent fail for demo/offline */
+    }
 }
 
-window.handleLike = async function(id) {
+window.handleLike = async function (id) {
     if (state.likedIds.has(id)) {
-        // Optional: Allow unlike? For now, let's just keep it add-only or toggle
-        // Simple toggle implementation for UI
+        // toggle off برای UI و localStorage
         state.likedIds.delete(id);
         localStorage.setItem('mg_liked', JSON.stringify([...state.likedIds]));
         updateLikeUI(id, null, false);
-        
-        // If we are in "liked" view, re-render to remove it immediately
+
         if (state.currentFilter === 'liked') renderFeed();
         return;
     }
@@ -88,26 +101,26 @@ window.handleLike = async function(id) {
     // Add Like
     const countEl = document.getElementById(`like-count-${id}`);
     let current = parseInt(countEl ? countEl.innerText : 0) || 0;
-    
+
     state.likedIds.add(id);
     localStorage.setItem('mg_liked', JSON.stringify([...state.likedIds]));
-    
+
     updateLikeUI(id, current + 1, true);
 
     const docRef = doc(db, "likes", id.toString());
     try {
         await updateDoc(docRef, { count: increment(1) });
     } catch (e) {
-        try { await setDoc(docRef, { count: 1 }); } catch(err){}
+        try { await setDoc(docRef, { count: 1 }); } catch (err) { }
     }
 };
 
 function updateLikeUI(id, count, isLiked) {
     const countEl = document.getElementById(`like-count-${id}`);
     const btnIcon = document.querySelector(`#like-btn-${id} svg`);
-    
-    if(count !== null && countEl) countEl.innerText = count;
-    
+
+    if (count !== null && countEl) countEl.innerText = count;
+
     // Check state if explicit status not passed
     const active = isLiked !== undefined ? isLiked : state.likedIds.has(id);
 
@@ -120,38 +133,130 @@ function updateLikeUI(id, count, isLiked) {
     }
 }
 
-// --- RENDER FUNCTIONS ---
+// --- MATH RENDERING ---
 function renderMath() {
     if (window.renderMathInElement) {
         renderMathInElement(document.body, {
             delimiters: [
-                {left: '$$', right: '$$', display: true},
-                {left: '$', right: '$', display: false}
+                { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
             ],
             throwOnError: false
         });
     }
 }
 
-window.toggle = function(id) {
+// --- SOLVED TOGGLE ---
+window.toggle = function (id) {
     if (state.solvedIds.has(id)) state.solvedIds.delete(id);
     else state.solvedIds.add(id);
     localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
     renderFeed(); // Re-render to update UI
 };
 
+// --- COMMENTS LOGIC ---
+
+// کمی escape برای جلوگیری از HTML injection ولی اجازه‌ی استفاده از $ ... $ برای KaTeX
+function escapeCommentText(text) {
+    return (text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+async function loadComments(problemId) {
+    try {
+        const q = query(
+            collection(db, "comments"),
+            where("problemId", "==", problemId)
+        );
+        const snap = await getDocs(q);
+
+        const comments = [];
+        snap.forEach(docSnap => comments.push(docSnap.data()));
+
+        const containers = [
+            document.getElementById(`comments-${problemId}`),
+            document.getElementById(`featured-comments-${problemId}`)
+        ].filter(Boolean);
+
+        containers.forEach(container => {
+            if (!container) return;
+
+            if (comments.length === 0) {
+                container.innerHTML = `
+                    <p class="text-[11px] text-stone-400">
+                        هنوز نظری ثبت نشده. اولین نفر باش 😊
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = comments.map(c => {
+                const text = escapeCommentText(c.text);
+                return `
+                    <div class="bg-stone-50 border border-stone-100 rounded-xl px-3 py-2 text-[11px] leading-relaxed text-stone-700">
+                        ${text}
+                    </div>
+                `;
+            }).join('');
+        });
+
+        // اگر کسی تو کامنت‌ها فرمول نوشت، دوباره math رو رندر کن
+        renderMath();
+    } catch (e) {
+        console.error("Failed to load comments", e);
+    }
+}
+
+window.addComment = async function (problemId) {
+    const cardInput = document.getElementById(`comment-input-${problemId}`);
+    const featuredInput = document.getElementById(`featured-comment-input-${problemId}`);
+    const input = cardInput || featuredInput;
+    if (!input) return;
+
+    const raw = input.value.trim();
+    if (!raw) return;
+
+    input.disabled = true;
+
+    try {
+        await addDoc(collection(db, "comments"), {
+            problemId,
+            text: raw,
+            ts: serverTimestamp()
+        });
+
+        input.value = "";
+        await loadComments(problemId);
+    } catch (e) {
+        console.error("Failed to add comment", e);
+    } finally {
+        input.disabled = false;
+    }
+};
+
+// --- FEATURED (Random) PROBLEM ---
 function renderFeatured() {
     if (problems.length === 0) return;
     const randomProb = problems[Math.floor(Math.random() * problems.length)];
     const isSolved = state.solvedIds.has(randomProb.id);
     const iconSvg = getIcon(randomProb.category, randomProb, true);
-    
+
     const hasCustomVisual = !!problemVisuals[randomProb.id];
-    const visualContent = hasCustomVisual 
+    const visualContent = hasCustomVisual
         ? problemVisuals[randomProb.id]
         : `<div class="w-full h-48 flex items-center justify-center opacity-10">${iconSvg}</div>`;
-        
-    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
+
+    const categoryMap = {
+        'Logic': 'منطق',
+        'Combinatorics': 'ترکیبیات',
+        'Algorithms': 'الگوریتم',
+        'Probability': 'احتمال',
+        'Graph Theory': 'نظریه گراف',
+        'Geometry': 'هندسه',
+        'Number Theory': 'نظریه اعداد'
+    };
     const displayCat = categoryMap[randomProb.category] || randomProb.category;
 
     featuredContainer.innerHTML = `
@@ -180,25 +285,58 @@ function renderFeatured() {
                         <span>بعدی</span><span>↻</span>
                     </button>
                 </div>
+
+                <!-- Comments for featured problem -->
+                <div class="mt-8 border-t border-stone-700/40 pt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-[11px] font-semibold text-stone-300">ایده‌ها و راه‌حل‌های دیگران</span>
+                    </div>
+                    <div id="featured-comments-${randomProb.id}" class="comments-list space-y-2 max-h-40 overflow-y-auto pr-1 text-sm text-stone-100/90"></div>
+                    <div class="flex items-center gap-2 mt-3">
+                        <input
+                            id="featured-comment-input-${randomProb.id}"
+                            type="text"
+                            class="flex-grow text-xs bg-stone-900/40 border border-stone-700 rounded-lg px-3 py-2 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500"
+                            placeholder="ایده یا حدس خودت را اینجا بنویس..."
+                        >
+                        <button
+                            onclick="window.addComment(${randomProb.id})"
+                            class="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-[11px] text-stone-900 font-semibold hover:bg-amber-400 transition-colors"
+                        >
+                            ارسال
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
+
+    loadComments(randomProb.id);
     renderMath();
 }
 
+// --- FEED RENDERING ---
 function renderFeed() {
     feed.innerHTML = '';
-    
+
     // Filter Logic
     let filtered = problems;
-    
+
     if (state.currentFilter === 'liked') {
         filtered = problems.filter(p => state.likedIds.has(p.id));
         feedTitle.innerText = "مسائل مورد علاقه شما";
         document.getElementById('no-results-text').innerText = "هنوز هیچ معمایی را لایک نکرده‌اید.";
     } else if (state.currentFilter !== 'all') {
         filtered = problems.filter(p => p.category === state.currentFilter);
-        const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
+        const categoryMap = {
+            'Logic': 'منطق',
+            'Combinatorics': 'ترکیبیات',
+            'Algorithms': 'الگوریتم',
+            'Probability': 'احتمال',
+            'Graph Theory': 'نظریه گراف',
+            'Geometry': 'هندسه',
+            'Number Theory': 'نظریه اعداد'
+        };
         feedTitle.innerText = `دسته بندی: ${categoryMap[state.currentFilter] || state.currentFilter}`;
         document.getElementById('no-results-text').innerText = "موردی در این دسته یافت نشد.";
     } else {
@@ -213,12 +351,18 @@ function renderFeed() {
         document.getElementById('no-results').classList.add('hidden');
     }
 
-    // Sort: Unsolved first, then random order (or ID order)
-    // To keep the feed interesting, let's just shuffle or keep original order. 
-    // Let's keep original ID order reversed (newest first) for consistency in feed
-    const sorted = [...filtered].reverse(); 
+    // Sort: newest first
+    const sorted = [...filtered].reverse();
 
-    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
+    const categoryMap = {
+        'Logic': 'منطق',
+        'Combinatorics': 'ترکیبیات',
+        'Algorithms': 'الگوریتم',
+        'Probability': 'احتمال',
+        'Graph Theory': 'نظریه گراف',
+        'Geometry': 'هندسه',
+        'Number Theory': 'نظریه اعداد'
+    };
 
     let delay = 0;
     sorted.forEach(p => {
@@ -228,8 +372,8 @@ function renderFeed() {
         const hasCustomVisual = !!problemVisuals[p.id];
         const isLiked = state.likedIds.has(p.id);
 
-        const visualContent = hasCustomVisual 
-            ? problemVisuals[p.id] 
+        const visualContent = hasCustomVisual
+            ? problemVisuals[p.id]
             : `<div class="w-24 h-24 opacity-20 text-stone-400 transform rotate-12">${iconSvg}</div>`;
 
         // Async fetch like count
@@ -273,11 +417,32 @@ function renderFeed() {
                         </svg>
                     </button>
                 </div>
+
+                <!-- Comments for this problem card -->
+                <div class="mt-4 border-t border-stone-100 pt-3">
+                    <div id="comments-${p.id}" class="comments-list space-y-2 max-h-32 overflow-y-auto pr-1 text-xs text-stone-700"></div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input
+                            id="comment-input-${p.id}"
+                            type="text"
+                            class="flex-grow text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500"
+                            placeholder="ایده یا راه‌حل خودت را بنویس..."
+                        >
+                        <button
+                            onclick="window.addComment(${p.id})"
+                            class="shrink-0 px-3 py-1.5 rounded-lg bg-stone-900 text-[11px] text-white font-semibold hover:bg-amber-600 transition-colors"
+                        >
+                            ارسال
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
+
         feed.appendChild(card);
+        loadComments(p.id);
     });
-    
+
     renderMath();
 }
 
