@@ -1,0 +1,30 @@
+body {
+    font-family: 'Vazirmatn', sans-serif;
+    background-color: #fafaf9;
+    color: #1c1917;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Typography Fixes */
+p, h1, h2, h3, div {
+    font-feature-settings: "ss01";
+}
+
+/* Math Rendering Overrides */
+.katex { font-size: 1.1em; direction: ltr; unicode-bidi: isolate; }
+
+/* Scrollbar & Transitions */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.card-transition { transition: all 0.3s ease-out; }
+
+/* Animations */
+.fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; transform: translateY(10px); }
+@keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+
+/* Interactive Elements */
+.like-btn:active { transform: scale(0.9); }
+.liked-heart { fill: #ef4444; color: #ef4444; }
