@@ -12,6 +12,8 @@ import {
   where,
   getDocs,
   serverTimestamp,
+  orderBy,
+  limit,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { problemVisuals, getIcon } from "./visuals.js";
 
@@ -207,7 +209,67 @@ async function loadComments(problemId) {
   }
 }
 
-// این تابع دیگه به‌جای id، خود input رو مستقیم می‌گیره
+// --- سکشن آخرین نظرات ---
+async function loadLatestComments() {
+  const container = document.getElementById("latest-comments");
+  if (!container) return;
+
+  try {
+    const q = query(
+      collection(db, "comments"),
+      orderBy("ts", "desc"),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+
+    const comments = [];
+    snap.forEach((docSnap) => comments.push(docSnap.data()));
+
+    if (comments.length === 0) {
+      container.innerHTML = `
+        <p class="text-sm text-stone-400">
+          هنوز نظری ثبت نشده.
+        </p>
+      `;
+      return;
+    }
+
+    const findTitle = (pid) => {
+      const prob = problems.find((p) => p.id === pid);
+      return prob ? prob.title : `سؤال شماره ${pid}`;
+    };
+
+    container.innerHTML = comments
+      .map((c) => {
+        const safeText = escapeCommentText(c.text);
+        const title = findTitle(c.problemId);
+
+        return `
+          <div class="flex items-start gap-3 bg-stone-50 border border-stone-100 rounded-xl px-3 py-2">
+            <div class="mt-1 text-lg">💬</div>
+            <div class="flex-1">
+              <button
+                class="text-[11px] font-semibold text-amber-700 hover:text-amber-900 mb-1"
+                onclick="window.showFull(${c.problemId})"
+              >
+                ${title}
+              </button>
+              <div class="text-[12px] leading-relaxed text-stone-700">
+                ${safeText}
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    renderMath();
+  } catch (e) {
+    console.error("Failed to load latest comments", e);
+  }
+}
+
+// این تابع برای هر input مشخص صدا زده می‌شه
 async function addComment(problemId, inputEl) {
   if (!inputEl) return;
   const raw = inputEl.value.trim();
@@ -223,6 +285,7 @@ async function addComment(problemId, inputEl) {
 
     inputEl.value = "";
     await loadComments(problemId);
+    await loadLatestComments();
   } catch (e) {
     console.error("Failed to add comment", e);
   } finally {
@@ -335,7 +398,6 @@ window.renderFeatured = function (problemId = null) {
     </div>
   `;
 
-  // اینجا رو بعد از ساخت HTML انجام می‌دیم که elementها وجود داشته باشن
   const featuredInput = document.getElementById(
     `featured-comment-input-${prob.id}`
   );
@@ -537,7 +599,6 @@ function renderFeed() {
 
     feed.appendChild(card);
 
-    // بایند کردن event برای دکمه‌ی کامنت همین کارت
     const cardInput = card.querySelector('[data-role="card-comment-input"]');
     const cardBtn = card.querySelector('[data-role="card-comment-btn"]');
     if (cardBtn && cardInput) {
@@ -553,3 +614,4 @@ function renderFeed() {
 // --- INIT ---
 window.renderFeatured();
 renderFeed();
+loadLatestComments();
