@@ -18,8 +18,8 @@ const db = getFirestore(app);
 // --- STATE MANAGEMENT ---
 const today = new Date().toISOString().split('T')[0];
 const problems = (window.allProblems || []).filter(p => {
-    if (!p.releaseDate) return true;
-    return p.releaseDate <= today;
+    // Show all problems in dev/demo mode, otherwise respect release date
+    return !p.releaseDate || p.releaseDate <= today;
 });
 
 let state = {
@@ -32,27 +32,33 @@ const feed = document.getElementById('problem-feed');
 const featuredContainer = document.getElementById('featured-container');
 const filterContainer = document.getElementById('filter-container');
 const headerEl = document.getElementById('sticky-header');
+const feedTitle = document.getElementById('feed-title');
 
 // --- EVENT LISTENERS ---
 window.addEventListener('scroll', () => {
-    if (window.scrollY > 20) headerEl.classList.add('border-stone-200', 'shadow-sm');
-    else headerEl.classList.remove('border-stone-200', 'shadow-sm');
+    if (window.scrollY > 20) headerEl.classList.add('scrolled');
+    else headerEl.classList.remove('scrolled');
 });
 
 filterContainer.addEventListener('click', (e) => {
     if (e.target.classList.contains('filter-btn')) {
+        // Update Active Class
         document.querySelectorAll('.filter-btn').forEach(b => {
-            b.className = 'filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors';
+            b.classList.remove('active-filter', 'bg-stone-900', 'text-white');
+            if(!b.dataset.filter.includes('liked')) b.classList.add('text-stone-500');
         });
-        e.target.className = 'filter-btn shrink-0 text-xs font-semibold px-4 py-1.5 rounded-full bg-stone-900 text-white transition-colors';
+        
+        e.target.classList.add('active-filter');
+        e.target.classList.remove('text-stone-500'); // Remove gray text if active
+        
         state.currentFilter = e.target.dataset.filter;
         renderFeed();
     }
 });
 
 document.getElementById('random-btn').addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     renderFeatured();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 // --- LIKES LOGIC ---
@@ -62,20 +68,31 @@ async function fetchLikes(id) {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             updateLikeUI(id, docSnap.data().count);
-        } else {
-            updateLikeUI(id, 0); 
         }
-    } catch(e) { console.log("Firebase inactive"); }
+    } catch(e) { /* silent fail for demo/offline */ }
 }
 
 window.handleLike = async function(id) {
-    if (state.likedIds.has(id)) return; 
+    if (state.likedIds.has(id)) {
+        // Optional: Allow unlike? For now, let's just keep it add-only or toggle
+        // Simple toggle implementation for UI
+        state.likedIds.delete(id);
+        localStorage.setItem('mg_liked', JSON.stringify([...state.likedIds]));
+        updateLikeUI(id, null, false);
+        
+        // If we are in "liked" view, re-render to remove it immediately
+        if (state.currentFilter === 'liked') renderFeed();
+        return;
+    }
 
+    // Add Like
     const countEl = document.getElementById(`like-count-${id}`);
-    let current = parseInt(countEl.innerText) || 0;
-    updateLikeUI(id, current + 1);
+    let current = parseInt(countEl ? countEl.innerText : 0) || 0;
+    
     state.likedIds.add(id);
     localStorage.setItem('mg_liked', JSON.stringify([...state.likedIds]));
+    
+    updateLikeUI(id, current + 1, true);
 
     const docRef = doc(db, "likes", id.toString());
     try {
@@ -85,13 +102,21 @@ window.handleLike = async function(id) {
     }
 };
 
-function updateLikeUI(id, count) {
+function updateLikeUI(id, count, isLiked) {
     const countEl = document.getElementById(`like-count-${id}`);
     const btnIcon = document.querySelector(`#like-btn-${id} svg`);
-    if(countEl) countEl.innerText = count;
-    if (state.likedIds.has(id) && btnIcon) {
+    
+    if(count !== null && countEl) countEl.innerText = count;
+    
+    // Check state if explicit status not passed
+    const active = isLiked !== undefined ? isLiked : state.likedIds.has(id);
+
+    if (active && btnIcon) {
         btnIcon.classList.add('liked-heart');
         btnIcon.setAttribute('fill', 'currentColor');
+    } else if (btnIcon) {
+        btnIcon.classList.remove('liked-heart');
+        btnIcon.setAttribute('fill', 'none');
     }
 }
 
@@ -112,8 +137,7 @@ window.toggle = function(id) {
     if (state.solvedIds.has(id)) state.solvedIds.delete(id);
     else state.solvedIds.add(id);
     localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
-    // Re-render to update button state, though order remains random (reshuffled)
-    renderFeed();
+    renderFeed(); // Re-render to update UI
 };
 
 function renderFeatured() {
@@ -122,38 +146,37 @@ function renderFeatured() {
     const isSolved = state.solvedIds.has(randomProb.id);
     const iconSvg = getIcon(randomProb.category, randomProb, true);
     
-    // Check if custom visual exists, otherwise use large icon
     const hasCustomVisual = !!problemVisuals[randomProb.id];
     const visualContent = hasCustomVisual 
         ? problemVisuals[randomProb.id]
         : `<div class="w-full h-48 flex items-center justify-center opacity-10">${iconSvg}</div>`;
         
-    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
+    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
     const displayCat = categoryMap[randomProb.category] || randomProb.category;
 
     featuredContainer.innerHTML = `
-        <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl p-0 flex flex-col md:flex-row transition-all duration-700 fade-in group min-h-[400px]">
+        <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl flex flex-col md:flex-row min-h-[400px]">
             
-            <div class="visual-col w-full md:w-5/12 bg-stone-800/50 p-8 md:p-12 flex items-center justify-center relative border-b md:border-b-0 md:border-l border-stone-700">
-                <div class="absolute inset-0 opacity-5 pointer-events-none">${iconSvg}</div>
-                <div class="relative z-10 w-full text-stone-300">
+            <div class="visual-col w-full md:w-5/12 bg-stone-800/50 p-8 md:p-12 flex items-center justify-center relative border-b md:border-b-0 md:border-l border-stone-700/50">
+                <div class="absolute inset-0 opacity-5 pointer-events-none scale-150">${iconSvg}</div>
+                <div class="relative z-10 w-full text-stone-300 visual-container">
                      ${visualContent}
                 </div>
             </div>
 
-            <div class="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-center relative">
+            <div class="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-center relative z-10">
                 <div class="flex items-center gap-3 mb-6">
-                    <span class="px-2 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded text-white shadow-lg">چالش ویژه</span>
+                    <span class="px-3 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded-lg text-white shadow-lg shadow-amber-900/20">چالش تصادفی</span>
                     <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">${displayCat}</span>
                 </div>
-                <h2 class="text-3xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white drop-shadow-sm">${randomProb.title}</h2>
-                <div class="text-stone-300 text-lg leading-relaxed mb-10 font-light problem-desc">${randomProb.text}</div>
+                <h2 class="text-3xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white">${randomProb.title}</h2>
+                <div class="text-stone-300 text-lg leading-relaxed mb-10 font-light problem-desc pl-4">${randomProb.text}</div>
                 
                 <div class="flex flex-wrap gap-4 mt-auto">
-                    <button onclick="window.toggle(${randomProb.id})" class="px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-stone-50 text-stone-900 hover:bg-white hover:shadow-lg'}">
-                        ${isSolved ? '✓ حل شد' : 'علامت زدن به عنوان حل شده'}
+                    <button onclick="window.toggle(${randomProb.id})" class="px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white text-stone-900 hover:bg-stone-100'}">
+                        ${isSolved ? '✓ حل شد' : 'حل کردم'}
                     </button>
-                    <button onclick="location.reload()" class="px-6 py-3 rounded-lg font-medium text-stone-400 hover:text-white hover:bg-stone-800 transition-colors border border-transparent hover:border-stone-700 flex items-center gap-2">
+                    <button onclick="renderFeatured()" class="px-6 py-3 rounded-xl font-medium text-stone-400 hover:text-white hover:bg-stone-800 transition-colors border border-stone-700 flex items-center gap-2">
                         <span>بعدی</span><span>↻</span>
                     </button>
                 </div>
@@ -163,79 +186,98 @@ function renderFeatured() {
     renderMath();
 }
 
-function renderFeed(overrideProblems = null) {
+function renderFeed() {
     feed.innerHTML = '';
-    const source = overrideProblems || problems;
-    if (source.length === 0) {
+    
+    // Filter Logic
+    let filtered = problems;
+    
+    if (state.currentFilter === 'liked') {
+        filtered = problems.filter(p => state.likedIds.has(p.id));
+        feedTitle.innerText = "مسائل مورد علاقه شما";
+        document.getElementById('no-results-text').innerText = "هنوز هیچ معمایی را لایک نکرده‌اید.";
+    } else if (state.currentFilter !== 'all') {
+        filtered = problems.filter(p => p.category === state.currentFilter);
+        const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
+        feedTitle.innerText = `دسته بندی: ${categoryMap[state.currentFilter] || state.currentFilter}`;
+        document.getElementById('no-results-text').innerText = "موردی در این دسته یافت نشد.";
+    } else {
+        feedTitle.innerText = "آخرین معماها";
+        document.getElementById('no-results-text').innerText = "موردی یافت نشد.";
+    }
+
+    if (filtered.length === 0) {
         document.getElementById('no-results').classList.remove('hidden');
         return;
-    }
-    let visible = 0;
-
-    // --- RANDOM SHUFFLE LOGIC ---
-    // We create a copy of the source array to shuffle
-    const shuffled = [...source];
-    // Fisher-Yates Shuffle Algorithm
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    } else {
+        document.getElementById('no-results').classList.add('hidden');
     }
 
-    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
+    // Sort: Unsolved first, then random order (or ID order)
+    // To keep the feed interesting, let's just shuffle or keep original order. 
+    // Let's keep original ID order reversed (newest first) for consistency in feed
+    const sorted = [...filtered].reverse(); 
 
-    shuffled.forEach(p => {
-        // Filter by category if necessary
-        if (!overrideProblems && state.currentFilter !== 'all' && p.category !== state.currentFilter) return;
-        visible++;
-        
+    const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه', 'Number Theory': 'نظریه اعداد' };
+
+    let delay = 0;
+    sorted.forEach(p => {
         const isSolved = state.solvedIds.has(p.id);
         const displayCat = categoryMap[p.category] || p.category;
         const iconSvg = getIcon(p.category, p, false);
         const hasCustomVisual = !!problemVisuals[p.id];
+        const isLiked = state.likedIds.has(p.id);
 
         const visualContent = hasCustomVisual 
             ? problemVisuals[p.id] 
-            : `<div class="w-32 h-32 opacity-10 text-stone-400">${iconSvg}</div>`;
+            : `<div class="w-24 h-24 opacity-20 text-stone-400 transform rotate-12">${iconSvg}</div>`;
 
+        // Async fetch like count
         fetchLikes(p.id);
 
         const card = document.createElement('div');
-        card.className = `card-transition overflow-hidden rounded-2xl border flex flex-col md:flex-row group ${isSolved ? 'bg-stone-100 border-stone-200 opacity-70' : 'bg-white border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300'}`;
+        // Add animation delay for staggered entrance
+        card.style.animationDelay = `${delay}ms`;
+        delay += 50;
+
+        card.className = `problem-card fade-in group relative bg-white rounded-2xl border border-stone-100 flex flex-col overflow-hidden ${isSolved ? 'solved' : 'shadow-sm'}`;
 
         card.innerHTML = `
-            <div class="visual-col w-full md:w-1/3 bg-stone-50 border-b md:border-b-0 md:border-l border-stone-100 p-6 md:p-8 flex items-center justify-center relative min-h-[200px] text-stone-600">
-                ${visualContent}
+            <div class="visual-col bg-stone-50 h-48 flex items-center justify-center p-6 relative overflow-hidden border-b border-stone-100 text-stone-600">
+                <div class="visual-container w-full flex justify-center transform transition-transform duration-500 group-hover:scale-105">
+                    ${visualContent}
+                </div>
+                ${isSolved ? '<div class="absolute inset-0 bg-emerald-500/10 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm">حل شده</span></div>' : ''}
             </div>
             
-            <div class="w-full md:w-2/3 p-6 md:p-8 flex flex-col relative">
-                <div class="flex justify-between items-baseline mb-4">
-                    <span class="text-[10px] font-bold text-stone-400 uppercase tracking-wider bg-stone-50 px-2 py-1 rounded border border-stone-100">${displayCat}</span>
-                    ${isSolved ? '<span class="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">حل شده</span>' : ''}
+            <div class="p-6 flex flex-col flex-grow">
+                <div class="flex justify-between items-start mb-3">
+                    <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider bg-stone-100 px-2 py-1 rounded-md">${displayCat}</span>
                 </div>
                 
-                <h3 class="font-extrabold text-stone-800 text-xl md:text-2xl leading-snug mb-4 ${isSolved ? 'line-through text-stone-400' : ''}">${p.title}</h3>
+                <h3 class="font-bold text-stone-800 text-lg leading-tight mb-3 line-clamp-2 group-hover:text-amber-600 transition-colors">${p.title}</h3>
                 
-                <div class="text-sm md:text-base text-stone-600 font-normal leading-relaxed mb-6 text-justify grow problem-desc">
+                <div class="text-sm text-stone-600 leading-relaxed mb-6 line-clamp-4 text-justify problem-desc">
                     ${p.text}
                 </div>
                 
-                <div class="flex items-center justify-between mt-auto pt-4 border-t border-stone-50">
-                    <button onclick="window.toggle(${p.id})" class="text-xs font-semibold px-4 py-2 rounded-lg border border-stone-200 ${isSolved ? 'text-stone-400 bg-transparent' : 'text-stone-800 bg-white hover:bg-stone-50 hover:border-stone-300'} transition-all">
-                        ${isSolved ? 'علامت زدن به عنوان حل نشده' : 'حل مسئله'}
+                <div class="mt-auto flex items-center justify-between pt-4 border-t border-stone-50">
+                    <button onclick="window.toggle(${p.id})" class="text-xs font-semibold px-4 py-2 rounded-lg transition-all ${isSolved ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-stone-600 bg-stone-100 hover:bg-stone-200 hover:text-stone-900'}">
+                        ${isSolved ? '✓ حل شد' : 'حل مسئله'}
                     </button>
 
-                    <button id="like-btn-${p.id}" onclick="window.handleLike(${p.id})" class="like-btn flex items-center gap-1.5 text-stone-400 hover:text-red-500 transition-colors px-2 py-1" title="لایک">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <button id="like-btn-${p.id}" onclick="window.handleLike(${p.id})" class="group/like flex items-center gap-1.5 text-stone-400 hover:text-rose-500 transition-colors p-1.5 rounded-full hover:bg-rose-50" title="${isLiked ? 'حذف از مورد علاقه' : 'افزودن به مورد علاقه'}">
+                        <span id="like-count-${p.id}" class="text-xs font-mono font-bold pt-0.5 group-hover/like:text-rose-500">0</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-300 ${isLiked ? 'liked-heart' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
-                        <span id="like-count-${p.id}" class="text-sm font-mono font-bold pt-0.5">0</span>
                     </button>
                 </div>
             </div>
         `;
         feed.appendChild(card);
     });
-    document.getElementById('no-results').classList.toggle('hidden', visible > 0);
+    
     renderMath();
 }
 
