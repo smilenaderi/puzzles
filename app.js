@@ -200,10 +200,13 @@ async function loadComments(problemId) {
     }
 }
 
+// 🔧 اینجا فیکس اصلی: اول input بالایی رو بگیر، بعد پایینی
 window.addComment = async function (problemId) {
-    const cardInput = document.getElementById(`comment-input-${problemId}`);
     const featuredInput = document.getElementById(`featured-comment-input-${problemId}`);
-    const input = cardInput || featuredInput;
+    const cardInput = document.getElementById(`comment-input-${problemId}`);
+
+    // اولویت با featured (بالای صفحه)، اگر نبود می‌ره سراغ کارت
+    const input = featuredInput || cardInput;
     if (!input) return;
 
     const raw = input.value.trim();
@@ -228,7 +231,6 @@ window.addComment = async function (problemId) {
 };
 
 // --- FEATURED PROBLEM ---
-// اینجا global تعریف می‌کنیم که onclickها ببینن‌ش
 window.renderFeatured = function (problemId = null) {
     if (problems.length === 0) return;
 
