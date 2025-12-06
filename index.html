@@ -40,17 +40,7 @@
 </head>
 <body class="min-h-screen max-w-3xl mx-auto px-4 py-8 md:py-12 selection:bg-stone-200">
 
-    <header class="flex justify-between items-end mb-8 border-b border-stone-200 pb-4">
-        <div>
-            <h1 class="text-3xl font-black text-stone-900 tracking-tight">نرمش ذهن</h1>
-            <p class="text-sm text-stone-500 font-medium mt-2">فکر خالص. بدون کاغذ و قلم.</p>
-        </div>
-        <div class="text-xs font-mono text-stone-400 dir-ltr">
-            <span id="header-progress" class="text-stone-900 font-bold">0</span>/<span id="header-total">0</span>
-        </div>
-    </header>
-
-    <div id="featured-container" class="mb-12"></div>
+    <div id="featured-container" class="mb-12 mt-4"></div>
 
     <div class="sticky top-0 z-20 bg-[#fafaf9]/95 backdrop-blur-sm py-3 mb-6 -mx-4 px-4 border-b border-transparent transition-all" id="sticky-header">
         <div class="flex justify-between items-center gap-4">
@@ -82,14 +72,14 @@
         import { getFirestore, doc, getDoc, updateDoc, increment, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // >>>>>> کد کپی شده از فایربیس را اینجا جایگزین کنید <<<<<<
-const firebaseConfig = {
-  apiKey: "AIzaSyC0q3_lGDHyGNez2-TYcFlQnaQOB-ER_zs",
-  authDomain: "mental-caa6d.firebaseapp.com",
-  projectId: "mental-caa6d",
-  storageBucket: "mental-caa6d.firebasestorage.app",
-  messagingSenderId: "749958924464",
-  appId: "1:749958924464:web:7ce584ba0015d3aa821375"
-};
+        const firebaseConfig = {
+          apiKey: "AIzaSyC0q3_lGDHyGNez2-TYcFlQnaQOB-ER_zs",
+          authDomain: "mental-caa6d.firebaseapp.com",
+          projectId: "mental-caa6d",
+          storageBucket: "mental-caa6d.firebasestorage.app",
+          messagingSenderId: "749958924464",
+          appId: "1:749958924464:web:7ce584ba0015d3aa821375"
+        };
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -144,7 +134,6 @@ const firebaseConfig = {
 
         // --- FIREBASE LIKES LOGIC ---
         
-        // 1. Fetch likes for a specific problem ID from Firestore
         async function fetchLikes(id) {
             const docRef = doc(db, "likes", id.toString());
             const docSnap = await getDoc(docRef);
@@ -152,29 +141,23 @@ const firebaseConfig = {
                 const count = docSnap.data().count;
                 updateLikeUI(id, count);
             } else {
-                updateLikeUI(id, 0); // No likes yet
+                updateLikeUI(id, 0); 
             }
         }
 
-        // 2. Handle Like Button Click
         window.handleLike = async function(id) {
-            if (state.likedIds.has(id)) return; // Prevent double liking locally
+            if (state.likedIds.has(id)) return; 
 
-            // Optimistic UI update (update immediately)
             const countEl = document.getElementById(`like-count-${id}`);
-            const btnEl = document.getElementById(`like-btn-${id}`);
             let current = parseInt(countEl.innerText) || 0;
             updateLikeUI(id, current + 1);
             state.likedIds.add(id);
             localStorage.setItem('mg_liked', JSON.stringify([...state.likedIds]));
 
-            // Send to Firebase
             const docRef = doc(db, "likes", id.toString());
             try {
-                // Try to increment
                 await updateDoc(docRef, { count: increment(1) });
             } catch (e) {
-                // If doc doesn't exist, create it
                 await setDoc(docRef, { count: 1 });
             }
         };
@@ -249,7 +232,6 @@ const firebaseConfig = {
                 card.className = `card-transition relative overflow-hidden p-6 rounded-xl border ${isSolved ? 'bg-stone-100 border-stone-200 opacity-60' : 'bg-white border-stone-200 shadow-sm hover:border-stone-300'}`;
                 const iconSvg = getIcon(p.category, p.id, false);
 
-                // Initialize fetching likes for this card
                 fetchLikes(p.id);
 
                 card.innerHTML = `
@@ -283,8 +265,7 @@ const firebaseConfig = {
         }
 
         function updateStats() {
-            document.getElementById('header-progress').textContent = state.solvedIds.size;
-            document.getElementById('header-total').textContent = problems.length;
+            // Stats UI elements removed, just saving state to local storage
             localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
         }
 
