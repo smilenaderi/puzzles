@@ -112,6 +112,7 @@ window.toggle = function(id) {
     if (state.solvedIds.has(id)) state.solvedIds.delete(id);
     else state.solvedIds.add(id);
     localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
+    // Re-render to update button state, though order remains random (reshuffled)
     renderFeed();
 };
 
@@ -130,7 +131,6 @@ function renderFeatured() {
     const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
     const displayCat = categoryMap[randomProb.category] || randomProb.category;
 
-    // Featured section remains large and centered, but styled to match
     featuredContainer.innerHTML = `
         <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl p-0 flex flex-col md:flex-row transition-all duration-700 fade-in group min-h-[400px]">
             
@@ -171,14 +171,20 @@ function renderFeed(overrideProblems = null) {
         return;
     }
     let visible = 0;
-    const sorted = [...source].sort((a, b) => {
-        const aS = state.solvedIds.has(a.id);
-        const bS = state.solvedIds.has(b.id);
-        return aS === bS ? 0 : aS ? 1 : -1;
-    });
+
+    // --- RANDOM SHUFFLE LOGIC ---
+    // We create a copy of the source array to shuffle
+    const shuffled = [...source];
+    // Fisher-Yates Shuffle Algorithm
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
     const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
 
-    sorted.forEach(p => {
+    shuffled.forEach(p => {
+        // Filter by category if necessary
         if (!overrideProblems && state.currentFilter !== 'all' && p.category !== state.currentFilter) return;
         visible++;
         
@@ -187,7 +193,6 @@ function renderFeed(overrideProblems = null) {
         const iconSvg = getIcon(p.category, p, false);
         const hasCustomVisual = !!problemVisuals[p.id];
 
-        // Fallback visual if no custom drawing exists: Use category icon prominently
         const visualContent = hasCustomVisual 
             ? problemVisuals[p.id] 
             : `<div class="w-32 h-32 opacity-10 text-stone-400">${iconSvg}</div>`;
@@ -195,7 +200,6 @@ function renderFeed(overrideProblems = null) {
         fetchLikes(p.id);
 
         const card = document.createElement('div');
-        // KEY CHANGE: Flex row layout
         card.className = `card-transition overflow-hidden rounded-2xl border flex flex-col md:flex-row group ${isSolved ? 'bg-stone-100 border-stone-200 opacity-70' : 'bg-white border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300'}`;
 
         card.innerHTML = `
