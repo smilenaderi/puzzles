@@ -68,7 +68,6 @@ async function fetchLikes(id) {
     } catch(e) { console.log("Firebase inactive"); }
 }
 
-// Exposed to window for HTML onclick access
 window.handleLike = async function(id) {
     if (state.likedIds.has(id)) return; 
 
@@ -109,7 +108,6 @@ function renderMath() {
     }
 }
 
-// Exposed to window for HTML onclick access
 window.toggle = function(id) {
     if (state.solvedIds.has(id)) state.solvedIds.delete(id);
     else state.solvedIds.add(id);
@@ -123,28 +121,35 @@ function renderFeatured() {
     const isSolved = state.solvedIds.has(randomProb.id);
     const iconSvg = getIcon(randomProb.category, randomProb, true);
     
-    const customDrawing = problemVisuals[randomProb.id] 
-        ? `<div class="relative w-full my-8 p-6 bg-stone-800/50 rounded-xl border border-stone-700/50 flex justify-center items-center text-stone-300 overflow-hidden">${problemVisuals[randomProb.id]}</div>` 
-        : '';
+    // Check if custom visual exists, otherwise use large icon
+    const hasCustomVisual = !!problemVisuals[randomProb.id];
+    const visualContent = hasCustomVisual 
+        ? problemVisuals[randomProb.id]
+        : `<div class="w-full h-48 flex items-center justify-center opacity-10">${iconSvg}</div>`;
         
     const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
     const displayCat = categoryMap[randomProb.category] || randomProb.category;
 
+    // Featured section remains large and centered, but styled to match
     featuredContainer.innerHTML = `
-        <div class="relative overflow-hidden rounded-2xl bg-stone-900 text-stone-50 shadow-xl p-8 md:p-14 min-h-[320px] flex flex-col justify-center transition-all duration-700 fade-in group">
-            <div class="absolute -left-16 -bottom-16 w-80 h-80 text-stone-800 opacity-10 transform group-hover:rotate-12 transition-transform duration-1000 pointer-events-none">${iconSvg}</div>
+        <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl p-0 flex flex-col md:flex-row transition-all duration-700 fade-in group min-h-[400px]">
             
-            <div class="relative z-10 w-full">
+            <div class="visual-col w-full md:w-5/12 bg-stone-800/50 p-8 md:p-12 flex items-center justify-center relative border-b md:border-b-0 md:border-l border-stone-700">
+                <div class="absolute inset-0 opacity-5 pointer-events-none">${iconSvg}</div>
+                <div class="relative z-10 w-full text-stone-300">
+                     ${visualContent}
+                </div>
+            </div>
+
+            <div class="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-center relative">
                 <div class="flex items-center gap-3 mb-6">
                     <span class="px-2 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded text-white shadow-lg">چالش ویژه</span>
                     <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">${displayCat}</span>
                 </div>
-                <h2 class="text-2xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white drop-shadow-sm">${randomProb.title}</h2>
+                <h2 class="text-3xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white drop-shadow-sm">${randomProb.title}</h2>
+                <div class="text-stone-300 text-lg leading-relaxed mb-10 font-light problem-desc">${randomProb.text}</div>
                 
-                ${customDrawing}
-
-                <div class="text-stone-300 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl font-light problem-desc">${randomProb.text}</div>
-                <div class="flex flex-wrap gap-4">
+                <div class="flex flex-wrap gap-4 mt-auto">
                     <button onclick="window.toggle(${randomProb.id})" class="px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-stone-50 text-stone-900 hover:bg-white hover:shadow-lg'}">
                         ${isSolved ? '✓ حل شد' : 'علامت زدن به عنوان حل شده'}
                     </button>
@@ -178,41 +183,48 @@ function renderFeed(overrideProblems = null) {
         visible++;
         
         const isSolved = state.solvedIds.has(p.id);
-        const card = document.createElement('div');
         const displayCat = categoryMap[p.category] || p.category;
-        card.className = `card-transition relative overflow-hidden p-6 rounded-xl border group ${isSolved ? 'bg-stone-100 border-stone-200 opacity-60' : 'bg-white border-stone-200 shadow-sm hover:border-stone-300'}`;
         const iconSvg = getIcon(p.category, p, false);
+        const hasCustomVisual = !!problemVisuals[p.id];
 
-        const customDrawing = problemVisuals[p.id] 
-            ? `<div class="relative block w-full my-6 py-6 bg-stone-50 rounded border border-stone-100 flex justify-center items-center text-stone-600 hover:text-stone-900 transition-colors overflow-hidden">${problemVisuals[p.id]}</div>` 
-            : '';
+        // Fallback visual if no custom drawing exists: Use category icon prominently
+        const visualContent = hasCustomVisual 
+            ? problemVisuals[p.id] 
+            : `<div class="w-32 h-32 opacity-10 text-stone-400">${iconSvg}</div>`;
 
         fetchLikes(p.id);
 
+        const card = document.createElement('div');
+        // KEY CHANGE: Flex row layout
+        card.className = `card-transition overflow-hidden rounded-2xl border flex flex-col md:flex-row group ${isSolved ? 'bg-stone-100 border-stone-200 opacity-70' : 'bg-white border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300'}`;
+
         card.innerHTML = `
-            <div class="absolute -left-6 -bottom-6 w-32 h-32 opacity-5 transform rotate-0 pointer-events-none transition-transform duration-500 group-hover:scale-110">${iconSvg}</div>
+            <div class="visual-col w-full md:w-1/3 bg-stone-50 border-b md:border-b-0 md:border-l border-stone-100 p-6 md:p-8 flex items-center justify-center relative min-h-[200px] text-stone-600">
+                ${visualContent}
+            </div>
             
-            <div class="relative z-10 pl-4 w-full">
-                <div class="flex justify-between items-baseline mb-3">
+            <div class="w-full md:w-2/3 p-6 md:p-8 flex flex-col relative">
+                <div class="flex justify-between items-baseline mb-4">
                     <span class="text-[10px] font-bold text-stone-400 uppercase tracking-wider bg-stone-50 px-2 py-1 rounded border border-stone-100">${displayCat}</span>
                     ${isSolved ? '<span class="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">حل شده</span>' : ''}
                 </div>
-                <h3 class="font-extrabold text-stone-800 text-xl leading-snug mb-3 ${isSolved ? 'line-through text-stone-400' : ''}">${p.title}</h3>
                 
-                ${customDrawing}
-
-                <div class="text-sm text-stone-600 font-normal leading-relaxed mb-5 max-w-lg problem-desc text-justify">${p.text}</div>
+                <h3 class="font-extrabold text-stone-800 text-xl md:text-2xl leading-snug mb-4 ${isSolved ? 'line-through text-stone-400' : ''}">${p.title}</h3>
                 
-                <div class="flex items-center justify-between mt-4">
+                <div class="text-sm md:text-base text-stone-600 font-normal leading-relaxed mb-6 text-justify grow problem-desc">
+                    ${p.text}
+                </div>
+                
+                <div class="flex items-center justify-between mt-auto pt-4 border-t border-stone-50">
                     <button onclick="window.toggle(${p.id})" class="text-xs font-semibold px-4 py-2 rounded-lg border border-stone-200 ${isSolved ? 'text-stone-400 bg-transparent' : 'text-stone-800 bg-white hover:bg-stone-50 hover:border-stone-300'} transition-all">
-                        ${isSolved ? 'علامت زدن به عنوان حل نشده' : 'حل شد'}
+                        ${isSolved ? 'علامت زدن به عنوان حل نشده' : 'حل مسئله'}
                     </button>
 
-                    <button id="like-btn-${p.id}" onclick="window.handleLike(${p.id})" class="like-btn flex items-center gap-1 text-stone-400 hover:text-red-500 transition-colors" title="لایک">
+                    <button id="like-btn-${p.id}" onclick="window.handleLike(${p.id})" class="like-btn flex items-center gap-1.5 text-stone-400 hover:text-red-500 transition-colors px-2 py-1" title="لایک">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
-                        <span id="like-count-${p.id}" class="text-xs font-mono font-bold pt-0.5">0</span>
+                        <span id="like-count-${p.id}" class="text-sm font-mono font-bold pt-0.5">0</span>
                     </button>
                 </div>
             </div>
