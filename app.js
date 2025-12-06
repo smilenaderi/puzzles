@@ -228,7 +228,7 @@ window.addComment = async function (problemId) {
 };
 
 // --- FEATURED PROBLEM ---
-// حالا می‌تونه یا رندوم باشه، یا بر اساس id
+// اینجا global تعریف می‌کنیم که onclickها ببینن‌ش
 window.renderFeatured = function (problemId = null) {
     if (problems.length === 0) return;
 
@@ -278,7 +278,6 @@ window.renderFeatured = function (problemId = null) {
                 </div>
                 <h2 class="text-3xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white">${prob.title}</h2>
                 
-                <!-- این‌جا دیگه متن کامل بدون line-clamp -->
                 <div class="text-stone-300 text-lg leading-relaxed mb-10 font-light problem-desc pl-1">
                     ${prob.text}
                 </div>
@@ -292,7 +291,6 @@ window.renderFeatured = function (problemId = null) {
                     </button>
                 </div>
 
-                <!-- Comments for featured problem -->
                 <div class="mt-8 border-t border-stone-700/40 pt-4">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-[11px] font-semibold text-stone-300">ایده‌ها و راه‌حل‌های دیگران</span>
@@ -319,11 +317,11 @@ window.renderFeatured = function (problemId = null) {
 
     loadComments(prob.id);
     renderMath();
-}
+};
 
-// تابعی که کارت‌ها صدا می‌زنند: «این معما رو بیار بالا»
+// وقتی از روی کارت کلیک می‌کنی «مشاهده کامل»
 window.showFull = function (id) {
-    renderFeatured(id);
+    window.renderFeatured(id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
