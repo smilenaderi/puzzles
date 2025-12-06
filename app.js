@@ -68,8 +68,7 @@ filterContainer.addEventListener('click', (e) => {
 });
 
 document.getElementById('random-btn').addEventListener('click', () => {
-    // رندوم مثل قبل
-    renderFeatured();
+    window.renderFeatured();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
@@ -230,7 +229,7 @@ window.addComment = async function (problemId) {
 
 // --- FEATURED PROBLEM ---
 // حالا می‌تونه یا رندوم باشه، یا بر اساس id
-function renderFeatured(problemId = null) {
+window.renderFeatured = function (problemId = null) {
     if (problems.length === 0) return;
 
     let prob;
@@ -288,7 +287,7 @@ function renderFeatured(problemId = null) {
                     <button onclick="window.toggle(${prob.id})" class="px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white text-stone-900 hover:bg-stone-100'}">
                         ${isSolved ? '✓ حل شد' : 'حل کردم'}
                     </button>
-                    <button onclick="renderFeatured()" class="px-6 py-3 rounded-xl font-medium text-stone-400 hover:text-white hover:bg-stone-800 transition-colors border border-stone-700 flex items-center gap-2">
+                    <button onclick="window.renderFeatured()" class="px-6 py-3 rounded-xl font-medium text-stone-400 hover:text-white hover:bg-stone-800 transition-colors border border-stone-700 flex items-center gap-2">
                         <span>معمای تصادفی</span><span>↻</span>
                     </button>
                 </div>
@@ -463,5 +462,5 @@ function renderFeed() {
 }
 
 // Init
-renderFeatured();
+window.renderFeatured();
 renderFeed();
