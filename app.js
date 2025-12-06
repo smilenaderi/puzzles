@@ -17,7 +17,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { problemVisuals, getIcon } from "./visuals.js";
 
-// --- FIREBASE CONFIG ---
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyC0q3_lGDHyGNez2-TYcFlQnaQOB-ER_zs",
   authDomain: "mental-caa6d.firebaseapp.com",
@@ -30,7 +30,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// --- STATE MANAGEMENT ---
+// Data & state
 const today = new Date().toISOString().split("T")[0];
 const problems = (window.allProblems || []).filter(
   (p) => !p.releaseDate || p.releaseDate <= today
@@ -48,45 +48,41 @@ const filterContainer = document.getElementById("filter-container");
 const headerEl = document.getElementById("sticky-header");
 const feedTitle = document.getElementById("feed-title");
 
-// --- HEADER SCROLL EFFECT ---
+// Header scroll effect
 window.addEventListener("scroll", () => {
   if (window.scrollY > 20) headerEl.classList.add("scrolled");
   else headerEl.classList.remove("scrolled");
 });
 
-// --- FILTERS ---
+// Filters
 filterContainer.addEventListener("click", (e) => {
-  if (e.target.classList.contains("filter-btn")) {
-    document.querySelectorAll(".filter-btn").forEach((b) => {
-      b.classList.remove("active-filter", "bg-stone-900", "text-white");
-      if (!b.dataset.filter.includes("liked")) b.classList.add("text-stone-500");
-    });
+  if (!e.target.classList.contains("filter-btn")) return;
 
-    e.target.classList.add("active-filter");
-    e.target.classList.remove("text-stone-500");
+  document.querySelectorAll(".filter-btn").forEach((b) => {
+    b.classList.remove("active-filter", "bg-stone-900", "text-white");
+    if (!b.dataset.filter.includes("liked")) b.classList.add("text-stone-500");
+  });
 
-    state.currentFilter = e.target.dataset.filter;
-    renderFeed();
-  }
+  e.target.classList.add("active-filter");
+  e.target.classList.remove("text-stone-500");
+
+  state.currentFilter = e.target.dataset.filter;
+  renderFeed();
 });
 
-// --- RANDOM FEATURED BUTTON ---
+// Random featured
 document.getElementById("random-btn").addEventListener("click", () => {
   window.renderFeatured();
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-// --- LIKES LOGIC ---
+// Likes
 async function fetchLikes(id) {
   try {
     const docRef = doc(db, "likes", id.toString());
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      updateLikeUI(id, docSnap.data().count);
-    }
-  } catch (e) {
-    // silent
-  }
+    if (docSnap.exists()) updateLikeUI(id, docSnap.data().count);
+  } catch (_) {}
 }
 
 window.handleLike = async function (id) {
@@ -103,16 +99,15 @@ window.handleLike = async function (id) {
 
   state.likedIds.add(id);
   localStorage.setItem("mg_liked", JSON.stringify([...state.likedIds]));
-
   updateLikeUI(id, current + 1, true);
 
   const docRef = doc(db, "likes", id.toString());
   try {
     await updateDoc(docRef, { count: increment(1) });
-  } catch (e) {
+  } catch {
     try {
       await setDoc(docRef, { count: 1 });
-    } catch (err) {}
+    } catch {}
   }
 };
 
@@ -134,20 +129,19 @@ function updateLikeUI(id, count, isLiked) {
   }
 }
 
-// --- MATH RENDERING ---
+// Math rendering
 function renderMath() {
-  if (window.renderMathInElement) {
-    renderMathInElement(document.body, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-      ],
-      throwOnError: false,
-    });
-  }
+  if (!window.renderMathInElement) return;
+  renderMathInElement(document.body, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "$", right: "$", display: false },
+    ],
+    throwOnError: false,
+  });
 }
 
-// --- SOLVED TOGGLE ---
+// Solved toggle
 window.toggle = function (id) {
   if (state.solvedIds.has(id)) state.solvedIds.delete(id);
   else state.solvedIds.add(id);
@@ -155,7 +149,7 @@ window.toggle = function (id) {
   renderFeed();
 };
 
-// --- COMMENTS HELPERS ---
+// Comments helpers
 function escapeCommentText(text) {
   return (text || "")
     .replace(/&/g, "&amp;")
@@ -183,11 +177,8 @@ async function loadComments(problemId) {
       if (!container) return;
 
       if (comments.length === 0) {
-        container.innerHTML = `
-          <p class="text-[11px] text-stone-400">
-            هنوز نظری ثبت نشده. اولین نفر باش 😊
-          </p>
-        `;
+        container.innerHTML =
+          '<p class="text-[11px] text-stone-400">هنوز نظری ثبت نشده. اولین نفر باش 😊</p>';
         return;
       }
 
@@ -209,7 +200,7 @@ async function loadComments(problemId) {
   }
 }
 
-// --- سکشن آخرین نظرات ---
+// Latest comments sidebar
 async function loadLatestComments() {
   const container = document.getElementById("latest-comments");
   if (!container) return;
@@ -226,11 +217,8 @@ async function loadLatestComments() {
     snap.forEach((docSnap) => comments.push(docSnap.data()));
 
     if (comments.length === 0) {
-      container.innerHTML = `
-        <p class="text-sm text-stone-400">
-          هنوز نظری ثبت نشده.
-        </p>
-      `;
+      container.innerHTML =
+        '<p class="text-sm text-stone-400">هنوز نظری ثبت نشده.</p>';
       return;
     }
 
@@ -243,7 +231,6 @@ async function loadLatestComments() {
       .map((c) => {
         const safeText = escapeCommentText(c.text);
         const title = findTitle(c.problemId);
-
         return `
           <div class="flex items-start gap-3 bg-stone-50 border border-stone-100 rounded-xl px-3 py-2">
             <div class="mt-1 text-lg">💬</div>
@@ -269,7 +256,7 @@ async function loadLatestComments() {
   }
 }
 
-// این تابع برای هر input مشخص صدا زده می‌شه
+// Add a comment from a specific input element
 async function addComment(problemId, inputEl) {
   if (!inputEl) return;
   const raw = inputEl.value.trim();
@@ -293,17 +280,15 @@ async function addComment(problemId, inputEl) {
   }
 }
 
-// --- FEATURED (بالای صفحه) ---
+// Featured (top card)
 window.renderFeatured = function (problemId = null) {
   if (problems.length === 0) return;
 
-  let prob;
-  if (problemId !== null && problemId !== undefined) {
-    prob = problems.find((p) => p.id === problemId);
-  }
-  if (!prob) {
-    prob = problems[Math.floor(Math.random() * problems.length)];
-  }
+  let prob =
+    problemId != null
+      ? problems.find((p) => p.id === problemId)
+      : null;
+  if (!prob) prob = problems[Math.floor(Math.random() * problems.length)];
 
   const isSolved = state.solvedIds.has(prob.id);
   const iconSvg = getIcon(prob.category, prob, true);
@@ -325,9 +310,11 @@ window.renderFeatured = function (problemId = null) {
   const displayCat = categoryMap[prob.category] || prob.category;
 
   featuredContainer.innerHTML = `
-    <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl flex flex-col md:flex-row min-h-[400px]">
-      <div class="visual-col w-full md:w-5/12 bg-stone-800/50 p-8 md:p-12 flex items-center justify-center relative border-b md:border-b-0 md:border-l border-stone-700/50">
-        <div class="absolute inset-0 opacity-5 pointer-events-none scale-150">${iconSvg}</div>
+    <div class="relative overflow-hidden rounded-3xl bg-stone-900 text-stone-50 shadow-2xl flex flex-col md:flex-row min-h-[380px]">
+      <div class="w-full md:w-5/12 bg-stone-800/50 p-8 md:p-12 flex items-center justify-center relative border-b md:border-b-0 md:border-l border-stone-700/50">
+        <div class="absolute inset-0 opacity-5 pointer-events-none scale-150">
+          ${iconSvg}
+        </div>
         <div class="relative z-10 w-full text-stone-300 visual-container">
           ${visualContent}
         </div>
@@ -338,13 +325,15 @@ window.renderFeatured = function (problemId = null) {
           <span class="px-3 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded-lg text-white shadow-lg shadow-amber-900/20">
             ${problemId ? "نمایش انتخاب شده" : "چالش تصادفی"}
           </span>
-          <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">${displayCat}</span>
+          <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">
+            ${displayCat}
+          </span>
         </div>
         <h2 class="text-3xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white">
           ${prob.title}
         </h2>
 
-        <div class="text-stone-300 text-lg leading-relaxed mb-10 font-light problem-desc pl-1">
+        <div class="text-stone-300 text-lg leading-relaxed mb-8 font-light problem-desc pl-1">
           ${prob.text}
         </div>
 
@@ -367,7 +356,7 @@ window.renderFeatured = function (problemId = null) {
           </button>
         </div>
 
-        <div class="mt-8 border-t border-stone-700/40 pt-4">
+        <div class="mt-6 border-t border-stone-700/40 pt-4">
           <div class="flex items-center justify-between mb-3">
             <span class="text-[11px] font-semibold text-stone-300">
               ایده‌ها و راه‌حل‌های دیگران
@@ -380,14 +369,12 @@ window.renderFeatured = function (problemId = null) {
           <div class="flex items-center gap-2 mt-3">
             <input
               id="featured-comment-input-${prob.id}"
-              data-role="featured-comment-input"
               type="text"
               class="flex-grow text-xs bg-stone-900/40 border border-stone-700 rounded-lg px-3 py-2 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500"
               placeholder="ایده یا حدس خودت را اینجا بنویس..."
             />
             <button
               id="featured-comment-btn-${prob.id}"
-              data-role="featured-comment-btn"
               class="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-[11px] text-stone-900 font-semibold hover:bg-amber-400 transition-colors"
             >
               ارسال
@@ -414,13 +401,13 @@ window.renderFeatured = function (problemId = null) {
   renderMath();
 };
 
-// کارت می‌گه "این رو بیار بالا"
+// Show full problem in featured
 window.showFull = function (id) {
   window.renderFeatured(id);
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-// --- FEED (کارت‌ها) ---
+// Feed
 function renderFeed() {
   feed.innerHTML = "";
 
@@ -442,7 +429,7 @@ function renderFeed() {
       Geometry: "هندسه",
       "Number Theory": "نظریه اعداد",
     };
-    feedTitle.innerText = `دسته بندی: ${
+    feedTitle.innerText = `دسته‌بندی: ${
       categoryMap[state.currentFilter] || state.currentFilter
     }`;
     document.getElementById("no-results-text").innerText =
@@ -487,14 +474,14 @@ function renderFeed() {
 
     const card = document.createElement("div");
     card.style.animationDelay = `${delay}ms`;
-    delay += 50;
+    delay += 40;
 
     card.className = `problem-card fade-in group relative bg-white rounded-2xl border border-stone-100 flex flex-col overflow-hidden ${
       isSolved ? "solved" : "shadow-sm"
     }`;
 
     card.innerHTML = `
-      <div class="visual-col bg-stone-50 h-48 flex items-center justify-center p-6 relative overflow-hidden border-b border-stone-100 text-stone-600">
+      <div class="bg-stone-50 h-48 flex items-center justify-center p-6 relative overflow-hidden border-b border-stone-100 text-stone-600">
         <div class="visual-container w-full flex justify-center transform transition-transform duration-500 group-hover:scale-105">
           ${visualContent}
         </div>
@@ -611,7 +598,7 @@ function renderFeed() {
   renderMath();
 }
 
-// --- INIT ---
+// Init
 window.renderFeatured();
 renderFeed();
 loadLatestComments();
