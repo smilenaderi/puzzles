@@ -6,39 +6,50 @@
     <title>نرمش ذهن | معماهای منطقی</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+
     <script src="data.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;600;700;800;900&display=swap');
-
         body {
             font-family: 'Vazirmatn', sans-serif;
             background-color: #fafaf9;
             color: #1c1917;
             -webkit-font-smoothing: antialiased;
         }
-        /* اسکرول بار و استایل‌های قبلی */
+        
+        /* Typography Fixes */
+        p, h1, h2, h3, div {
+            font-feature-settings: "ss01";
+        }
+        
+        /* Math Rendering Overrides */
+        .katex { font-size: 1.1em; direction: ltr; unicode-bidi: isolate; }
+        
+        /* Scrollbar & Transitions */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .card-transition { transition: all 0.3s ease-out; }
-        .problem-desc ul { list-style-type: disc; margin-right: 20px; margin-top: 8px; margin-bottom: 8px; }
-        .problem-desc li { margin-bottom: 4px; padding-left: 10px; }
-        .problem-desc strong { font-weight: 700; color: #44403c; }
-        .quiz-format ul { list-style-type: none; margin-right: 0; }
-        .quiz-format li { margin-bottom: 12px; font-weight: 600; }
-        .quiz-format .options { display: block; margin-top: 4px; margin-right: 10px; font-weight: 400; font-size: 0.9em; opacity: 0.9; color: #4b5563; }
+        
+        /* Animations */
         .fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; transform: translateY(10px); }
         @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
         
-        /* استایل دکمه لایک */
+        /* Interactive Elements */
         .like-btn:active { transform: scale(0.9); }
         .liked-heart { fill: #ef4444; color: #ef4444; }
     </style>
 </head>
-<body class="min-h-screen max-w-3xl mx-auto px-4 py-8 md:py-12 selection:bg-stone-200">
+<body class="min-h-screen max-w-3xl mx-auto px-4 py-8 md:py-12 selection:bg-amber-100 selection:text-amber-900">
 
     <div id="featured-container" class="mb-12 mt-4"></div>
 
@@ -49,7 +60,8 @@
                 <button data-filter="Logic" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">منطق</button>
                 <button data-filter="Combinatorics" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">ترکیبیات</button>
                 <button data-filter="Algorithms" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">الگوریتم</button>
-                <button data-filter="Probability" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">احتمال</button>
+                <button data-filter="Graph Theory" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">نظریه گراف</button>
+                <button data-filter="Geometry" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">هندسه</button>
             </div>
             <button id="random-btn" class="shrink-0 text-stone-400 hover:text-amber-600 transition-colors" title="انتخاب تصادفی">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -66,12 +78,11 @@
 
     <script type="module">
         // ==========================================
-        // 1. تنظیمات FIREBASE (اینجا را پر کنید)
+        // 1. Firebase Configuration
         // ==========================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, updateDoc, increment, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // >>>>>> کد کپی شده از فایربیس را اینجا جایگزین کنید <<<<<<
         const firebaseConfig = {
           apiKey: "AIzaSyC0q3_lGDHyGNez2-TYcFlQnaQOB-ER_zs",
           authDomain: "mental-caa6d.firebaseapp.com",
@@ -81,33 +92,43 @@
           appId: "1:749958924464:web:7ce584ba0015d3aa821375"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         // ==========================================
-        // 2. منطق برنامه (GAME LOGIC)
+        // 2. Logic & Icons
         // ==========================================
         
-        // --- Helper Functions ---
-        function getIcon(category, id, isFeatured = false) {
-            const c = isFeatured ? "text-stone-700" : "text-stone-200"; 
-            const p = problems.find(x => x.id === id);
-            const title = p ? p.title : "";
+        // --- Enhanced Icon System ---
+        const icons = {
+            ants: `<path d="M12 2C9 2 7 3.5 7 5C7 5.5 7.2 6 7.5 6.5C6 7 5 8.5 5 10C5 11.5 6 12.8 7.5 13.5C7.2 14 7 14.5 7 15C7 16.5 9 18 12 18C15 18 17 16.5 17 15C17 14.5 16.8 14 16.5 13.5C18 12.8 19 11.5 19 10C19 8.5 18 7 16.5 6.5C16.8 6 17 5.5 17 5C17 3.5 15 2 12 2ZM8 10C8 9.5 8.5 9 9 9H15C15.5 9 16 9.5 16 10C16 10.5 15.5 11 15 11H9C8.5 11 8 10.5 8 10ZM12 20C10.5 20 9 20.5 9 21C9 21.5 9.5 22 10 22H14C14.5 22 15 21.5 15 21C15 20.5 13.5 20 12 20Z" fill="currentColor"/>`,
+            grid: `<path d="M4 4H8V8H4V4ZM10 4H14V8H10V4ZM16 4H20V8H16V4ZM4 10H8V14H4V10ZM10 10H14V14H10V10ZM16 10H20V14H16V10ZM4 16H8V20H4V16ZM10 16H14V20H10V16ZM16 16H20V20H16V16Z" fill="currentColor" opacity="0.4"/>`,
+            coins: `<circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="16" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="16" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1.5"/>`,
+            graph: `<circle cx="6" cy="6" r="2" fill="currentColor"/><circle cx="18" cy="6" r="2" fill="currentColor"/><circle cx="12" cy="18" r="2" fill="currentColor"/><line x1="6" y1="6" x2="12" y2="18" stroke="currentColor"/><line x1="18" y1="6" x2="12" y2="18" stroke="currentColor"/><line x1="6" y1="6" x2="18" y2="6" stroke="currentColor"/>`,
+            prison: `<path d="M4 4H20V20H4V4ZM6 6V18H8V6H6ZM10 6V18H12V6H10ZM14 6V18H16V6H14ZM18 6V18H18V6H18Z" fill="currentColor" opacity="0.3"/>`,
+            potion: `<path d="M12 2L14 5H10L12 2ZM6 7H18L20 20C20 21.1 19.1 22 18 22H6C4.9 22 4 21.1 4 20L6 7Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 12H16" stroke="currentColor" stroke-dasharray="2 2"/>`,
+            geo: `<path d="M12 2L2 22H22L12 2Z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="14" r="3" fill="currentColor" opacity="0.3"/>`,
+            logic: `<path d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.5 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z" fill="currentColor" opacity="0.3"/>`,
+            default: `<circle cx="12" cy="12" r="8" opacity="0.1" fill="currentColor"/>`
+        };
 
-            if (title.includes("هواپیما") || title.includes("Airplane")) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" opacity="${isFeatured?'0.2':'1'}"/></svg>`;
-            if (title.includes("شتر") || title.includes("Camel")) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2c0-2-1.5-3.5-4-3.5S10 10 10 12H8c0-3.5 2.5-6 6-6s6 2.5 6 6zm-7 1c-2.5 0-4.5 2-4.5 4.5S9.5 22 12 22s4.5-2 4.5-4.5S14.5 13 12 13z" opacity="${isFeatured?'0.2':'0.5'}"/><circle cx="6" cy="12" r="2" opacity="0.5"/><circle cx="18" cy="12" r="2" opacity="0.5"/></svg>`;
-            if (title.includes("کیک") || title.includes("Cake")) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/></svg>`;
-            if (title.includes("دست") || title.includes("زوج")) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 11v1a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4v-1"/><path d="M7 11V7a4 4 0 0 1 8 0v4"/><circle cx="7" cy="11" r="3"/><circle cx="17" cy="11" r="3"/></svg>`;
-            if (title.includes("آزمون") || title.includes("Quiz")) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" opacity="0.3"/></svg>`;
+        function getIcon(category, p, isFeatured = false) {
+            const title = p.title || "";
+            const text = p.text || "";
+            const c = isFeatured ? "text-stone-700" : "text-stone-300";
+            let content = icons.default;
 
-            switch (category) {
-                case 'Probability': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l-2 7h4l-2 7"/><circle cx="12" cy="19" r="2"/></svg>`;
-                case 'Combinatorics': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z" opacity="0.3"/></svg>`;
-                case 'Algorithms': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="16" height="4" rx="1"/><rect x="4" y="18" width="16" height="4" rx="1"/><path d="M12 6v4"/><path d="M12 14v4"/><rect x="8" y="10" width="8" height="4" transform="rotate(45 12 12)"/></svg>`;
-                case 'Logic': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.5 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z" opacity="0.3"/></svg>`;
-                default: return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" opacity="0.1"/></svg>`;
-            }
+            // Keyword Matching
+            if (title.includes("مورچه") || text.includes("مورچه")) content = icons.ants;
+            else if (title.includes("شبکه") || title.includes("شطرنج") || title.includes("دومینو")) content = icons.grid;
+            else if (title.includes("سکه")) content = icons.coins;
+            else if (title.includes("گراف") || title.includes("دوستی")) content = icons.graph;
+            else if (title.includes("زندانی") || title.includes("جعبه") || title.includes("اتاق")) content = icons.prison;
+            else if (title.includes("سم") || title.includes("لیوان") || title.includes("شراب")) content = icons.potion;
+            else if (category === "Geometry" || title.includes("مثلث") || title.includes("کره")) content = icons.geo;
+            else if (category === "Logic") content = icons.logic;
+
+            return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">${content}</svg>`;
         }
 
         const today = new Date().toISOString().split('T')[0];
@@ -135,14 +156,15 @@
         // --- FIREBASE LIKES LOGIC ---
         
         async function fetchLikes(id) {
-            const docRef = doc(db, "likes", id.toString());
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const count = docSnap.data().count;
-                updateLikeUI(id, count);
-            } else {
-                updateLikeUI(id, 0); 
-            }
+            try {
+                const docRef = doc(db, "likes", id.toString());
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    updateLikeUI(id, docSnap.data().count);
+                } else {
+                    updateLikeUI(id, 0); 
+                }
+            } catch(e) { console.log("Firebase inactive"); }
         }
 
         window.handleLike = async function(id) {
@@ -158,19 +180,30 @@
             try {
                 await updateDoc(docRef, { count: increment(1) });
             } catch (e) {
-                await setDoc(docRef, { count: 1 });
+                try { await setDoc(docRef, { count: 1 }); } catch(err){}
             }
         };
 
         function updateLikeUI(id, count) {
             const countEl = document.getElementById(`like-count-${id}`);
             const btnIcon = document.querySelector(`#like-btn-${id} svg`);
-            
             if(countEl) countEl.innerText = count;
-            
             if (state.likedIds.has(id) && btnIcon) {
                 btnIcon.classList.add('liked-heart');
                 btnIcon.setAttribute('fill', 'currentColor');
+            }
+        }
+
+        // --- MATH RENDERER ---
+        function renderMath() {
+            if (window.renderMathInElement) {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
             }
         }
 
@@ -180,20 +213,20 @@
             if (problems.length === 0) return;
             const randomProb = problems[Math.floor(Math.random() * problems.length)];
             const isSolved = state.solvedIds.has(randomProb.id);
-            const iconSvg = getIcon(randomProb.category, randomProb.id, true);
-            const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال' };
+            const iconSvg = getIcon(randomProb.category, randomProb, true);
+            const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
             const displayCat = categoryMap[randomProb.category] || randomProb.category;
 
             featuredContainer.innerHTML = `
-                <div class="relative overflow-hidden rounded-2xl bg-stone-900 text-stone-50 shadow-xl p-8 md:p-14 min-h-[320px] flex flex-col justify-center transition-all duration-700 fade-in">
-                    <div class="absolute -left-16 -bottom-16 w-80 h-80 text-stone-800 opacity-20 transform -rotate-12 pointer-events-none">${iconSvg}</div>
+                <div class="relative overflow-hidden rounded-2xl bg-stone-900 text-stone-50 shadow-xl p-8 md:p-14 min-h-[320px] flex flex-col justify-center transition-all duration-700 fade-in group">
+                    <div class="absolute -left-16 -bottom-16 w-80 h-80 text-stone-800 opacity-20 transform group-hover:rotate-12 transition-transform duration-1000 pointer-events-none">${iconSvg}</div>
                     <div class="relative z-10">
                         <div class="flex items-center gap-3 mb-6">
                             <span class="px-2 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded text-white shadow-lg">چالش ویژه</span>
                             <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">${displayCat}</span>
                         </div>
                         <h2 class="text-2xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white drop-shadow-sm">${randomProb.title}</h2>
-                        <div class="text-stone-300 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl font-light problem-desc ${randomProb.id === 101 ? 'dark-quiz' : ''}">${randomProb.text}</div>
+                        <div class="text-stone-300 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl font-light problem-desc">${randomProb.text}</div>
                         <div class="flex flex-wrap gap-4">
                             <button onclick="window.toggle(${randomProb.id})" class="px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-stone-50 text-stone-900 hover:bg-white hover:shadow-lg'}">
                                 ${isSolved ? '✓ حل شد' : 'علامت زدن به عنوان حل شده'}
@@ -205,6 +238,7 @@
                     </div>
                 </div>
             `;
+            renderMath();
         }
 
         function renderFeed(overrideProblems = null) {
@@ -220,7 +254,7 @@
                 const bS = state.solvedIds.has(b.id);
                 return aS === bS ? 0 : aS ? 1 : -1;
             });
-            const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال' };
+            const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال', 'Graph Theory': 'نظریه گراف', 'Geometry': 'هندسه' };
 
             sorted.forEach(p => {
                 if (!overrideProblems && state.currentFilter !== 'all' && p.category !== state.currentFilter) return;
@@ -229,8 +263,8 @@
                 const isSolved = state.solvedIds.has(p.id);
                 const card = document.createElement('div');
                 const displayCat = categoryMap[p.category] || p.category;
-                card.className = `card-transition relative overflow-hidden p-6 rounded-xl border ${isSolved ? 'bg-stone-100 border-stone-200 opacity-60' : 'bg-white border-stone-200 shadow-sm hover:border-stone-300'}`;
-                const iconSvg = getIcon(p.category, p.id, false);
+                card.className = `card-transition relative overflow-hidden p-6 rounded-xl border group ${isSolved ? 'bg-stone-100 border-stone-200 opacity-60' : 'bg-white border-stone-200 shadow-sm hover:border-stone-300'}`;
+                const iconSvg = getIcon(p.category, p, false);
 
                 fetchLikes(p.id);
 
@@ -261,20 +295,14 @@
                 feed.appendChild(card);
             });
             document.getElementById('no-results').classList.toggle('hidden', visible > 0);
-            updateStats();
+            renderMath();
         }
 
-        function updateStats() {
-            // Stats UI elements removed, just saving state to local storage
-            localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
-        }
-
-        // Global Window Functions (because module scope is private)
         window.toggle = function(id) {
             if (state.solvedIds.has(id)) state.solvedIds.delete(id);
             else state.solvedIds.add(id);
+            localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
             renderFeed();
-            // Featured logic...
         };
 
         filterContainer.addEventListener('click', (e) => {
