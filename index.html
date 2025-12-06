@@ -1,0 +1,324 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نرمش ذهن | معماهای منطقی</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* استفاده از فونت وزیرمتن برای ظاهر حرفه‌ای فارسی */
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;600;700;800;900&display=swap');
+
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #fafaf9; /* stone-50 */
+            color: #1c1917;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* اسکرول بار تمیز */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .card-transition { transition: all 0.3s ease-out; }
+        
+        /* لیست‌ها داخل توضیحات */
+        .problem-desc ul { list-style-type: disc; margin-right: 20px; margin-top: 8px; margin-bottom: 8px; }
+        .problem-desc li { margin-bottom: 4px; padding-left: 10px; }
+        .problem-desc strong { font-weight: 700; color: #44403c; }
+
+        /* فرمت کوییز */
+        .quiz-format ul { list-style-type: none; margin-right: 0; }
+        .quiz-format li { margin-bottom: 12px; font-weight: 600; }
+        .quiz-format .options { display: block; margin-top: 4px; margin-right: 10px; font-weight: 400; font-size: 0.9em; opacity: 0.9; color: #4b5563; }
+        
+        /* اعداد فارسی در متن */
+        .fa-num { font-feature-settings: "ss01"; }
+
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen max-w-3xl mx-auto px-4 py-8 md:py-12 selection:bg-stone-200">
+
+    <header class="flex justify-between items-end mb-8 border-b border-stone-200 pb-4">
+        <div>
+            <h1 class="text-3xl font-black text-stone-900 tracking-tight">نرمش ذهن</h1>
+            <p class="text-sm text-stone-500 font-medium mt-2">فکر خالص. بدون کاغذ و قلم.</p>
+        </div>
+        <div class="text-xs font-mono text-stone-400 dir-ltr">
+            <span id="header-progress" class="text-stone-900 font-bold">0</span>/<span id="header-total">0</span>
+        </div>
+    </header>
+
+    <div id="featured-container" class="mb-12">
+    </div>
+
+    <div class="sticky top-0 z-20 bg-[#fafaf9]/95 backdrop-blur-sm py-3 mb-6 -mx-4 px-4 border-b border-transparent transition-all" id="sticky-header">
+        <div class="flex justify-between items-center gap-4">
+            <div class="flex gap-2 overflow-x-auto no-scrollbar pl-4" id="filter-container">
+                <button data-filter="all" class="filter-btn shrink-0 text-xs font-semibold px-4 py-1.5 rounded-full bg-stone-900 text-white transition-colors">همه</button>
+                <button data-filter="Logic" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">منطق</button>
+                <button data-filter="Combinatorics" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">ترکیبیات</button>
+                <button data-filter="Algorithms" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">الگوریتم</button>
+                <button data-filter="Probability" class="filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors">احتمال</button>
+            </div>
+            <button id="random-btn" class="shrink-0 text-stone-400 hover:text-amber-600 transition-colors" title="انتخاب تصادفی">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="problem-feed" class="flex flex-col gap-6 pb-20"></div>
+
+    <div id="no-results" class="hidden text-center py-12">
+        <p class="text-sm text-stone-400">موردی یافت نشد.</p>
+        <button onclick="document.querySelector('[data-filter=all]').click()" class="mt-2 text-xs font-bold text-stone-900 hover:underline">پاک کردن فیلتر</button>
+    </div>
+
+    <script>
+    // --- ICON GENERATION SYSTEM ---
+    function getIcon(category, id, isFeatured = false) {
+        const c = isFeatured ? "text-stone-700" : "text-stone-200"; 
+        
+        // 1. SPECIFIC CUSTOM ICONS (Based on IDs to ensure correct mapping after translation)
+        
+        // Airplane (101 is quiz, let's look at logic) -> 403 is Airplane
+        if (id === 403) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" opacity="${isFeatured?'0.2':'1'}"/></svg>`;
+        
+        // Camel (307)
+        if (id === 307) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2c0-2-1.5-3.5-4-3.5S10 10 10 12H8c0-3.5 2.5-6 6-6s6 2.5 6 6zm-7 1c-2.5 0-4.5 2-4.5 4.5S9.5 22 12 22s4.5-2 4.5-4.5S14.5 13 12 13z" opacity="${isFeatured?'0.2':'0.5'}"/><circle cx="6" cy="12" r="2" opacity="0.5"/><circle cx="18" cy="12" r="2" opacity="0.5"/></svg>`;
+        
+        // Cake (201)
+        if (id === 201) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/></svg>`;
+
+        // Handshake/Couples (104)
+        if (id === 104) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 11v1a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4v-1"/><path d="M7 11V7a4 4 0 0 1 8 0v4"/><circle cx="7" cy="11" r="3"/><circle cx="17" cy="11" r="3"/></svg>`;
+
+        // Fruit (103)
+        if (id === 103 || id === 307) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7.58 2 4 5.58 4 10c0 2.92 1.56 5.47 3.89 6.86-.32 1.05-.69 2.1-1.12 3.14H8.5c1.15-1.84 1.94-3.79 2.38-5.8.62.15 1.27.23 1.94.23 3.48 0 6.46-2.18 7.72-5.26C19.34 5.25 15.98 2 12 2z" opacity="0.3"/></svg>`;
+
+        // Cards (402)
+        if (id === 402) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="2" width="10" height="14" rx="2" opacity="0.5"/><rect x="10" y="8" width="10" height="14" rx="2" opacity="0.8"/></svg>`;
+
+        // Quiz (101)
+        if (id === 101) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" opacity="0.3"/></svg>`;
+
+        // Horse (304)
+        if (id === 304) return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3h-2.5c-.7 0-1.4.3-1.8.8L14 6h-3c-1.1 0-2 .9-2 2v2h1c2.2 0 4 1.8 4 4v2c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h1V8c0-2.2 1.8-4 4-4h2l2-2h5v1z" opacity="0.3"/></svg>`;
+
+        // 2. GENERIC CATEGORY FALLBACKS
+        switch (category) {
+            case 'Probability': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l-2 7h4l-2 7"/><circle cx="12" cy="19" r="2"/></svg>`;
+            case 'Combinatorics': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z" opacity="0.3"/></svg>`;
+            case 'Algorithms': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="16" height="4" rx="1"/><rect x="4" y="18" width="16" height="4" rx="1"/><path d="M12 6v4"/><path d="M12 14v4"/><rect x="8" y="10" width="8" height="4" transform="rotate(45 12 12)"/></svg>`;
+            case 'Logic': return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.5 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z" opacity="0.3"/></svg>`;
+            default: return `<svg class="w-full h-full ${c}" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" opacity="0.1"/></svg>`;
+        }
+    }
+
+    // --- TRANSLATED DATASET ---
+    const problems = [
+        // LOGIC
+        { 
+            id: 101, 
+            title: "آزمون خود-ارجاع", 
+            category: "Logic", 
+            difficulty: "Hard", 
+            text: "<div class='quiz-format'>پاسخ هر سوال به گزینه سوال دیگری اشاره دارد. دقیقاً یک گزینه برای هر سوال صحیح است.<ul><li>۱. پاسخ سوال ۲ کدام است؟ <span class='options dir-ltr'>(A) B &nbsp; (B) A &nbsp; (C) D &nbsp; (D) C</span></li><li>۲. پاسخ سوال ۳ کدام است؟ <span class='options dir-ltr'>(A) C &nbsp; (B) D &nbsp; (C) B &nbsp; (D) A</span></li><li>۳. پاسخ سوال ۴ کدام است؟ <span class='options dir-ltr'>(A) D &nbsp; (B) A &nbsp; (C) C &nbsp; (D) B</span></li><li>۴. پاسخ سوال ۱ کدام است؟ <span class='options dir-ltr'>(A) D &nbsp; (B) C &nbsp; (C) A &nbsp; (D) B</span></li></ul></div>", 
+            solved: false 
+        },
+        { id: 102, title: "مظنونین همیشگی", category: "Logic", difficulty: "Easy", text: "سه مظنون - جیم، باد و سام - بازجویی می‌شوند. شهادت آن‌ها:<br><ul><li><strong>جیم:</strong> من بی‌گناهم.</li><li><strong>باد:</strong> من بی‌گناهم.</li><li><strong>سام:</strong> باد گناهکار است.</li></ul>اگر دقیقاً یکی از این جملات راست باشد، چه کسی بانک را زده است؟", solved: false },
+        { id: 103, title: "جعبه‌های میوه برچسب‌خورده", category: "Logic", difficulty: "Easy", text: "شما سه جعبه دارید با برچسب‌های <strong>سیب</strong>، <strong>پرتقال</strong> و <strong>مخلوط</strong>. اما، <strong>همه</strong> برچسب‌ها غلط هستند. شما می‌توانید در یک جعبه را باز کنید و فقط یک میوه بردارید (بدون نگاه کردن به بقیه). چطور می‌توانید محتویات هر سه جعبه را با اطمینان مشخص کنید؟", solved: false },
+        { id: 104, title: "دست‌دادن زوج‌ها", category: "Logic", difficulty: "Hard", text: "پنج زوج در یک مهمانی هستند (۱۰ نفر). قوانین: هیچکس با خودش دست نمی‌دهد و هیچکس با همسرش دست نمی‌دهد. پروفسور از ۹ نفر دیگر می‌پرسد با چند نفر دست داده‌اند و <strong>۹ جواب متفاوت</strong> می‌شنود (از ۰ تا ۸). پروفسور با چند نفر دست داده است؟", solved: false },
+        { id: 105, title: "معمای سن بچه‌ها", category: "Logic", difficulty: "Medium", text: "مأمور سرشماری از خانمی سن ۳ فرزندش را می‌پرسد. زن می‌گوید:<ul><li>«حاصل‌ضرب سن آن‌ها ۷۲ است.»</li><li>«مجموع سن آن‌ها شماره پلاک خانه است.» (مأمور پلاک را می‌بیند اما می‌گوید اطلاعات کافی نیست).</li><li>«بچه بزرگتر توت‌فرنگی دوست دارد.»</li></ul>مأمور معما را حل می‌کند. سن بچه‌ها چقدر است؟", solved: false },
+        { id: 106, title: "سکه‌های کور", category: "Logic", difficulty: "Medium", text: "چشمان شما بسته است. ۱۰۰ سکه روی میز است؛ دقیقاً ۱۵ تا «شیر» و ۸۵ تا «خط». شما نمی‌توانید ببینید یا حس کنید کدام رو است. می‌توانید سکه‌ها را جابجا کنید یا برگردانید. چطور سکه‌ها را به دو دسته تقسیم می‌کنید که تعداد <strong>شیرها</strong> در هر دو دسته دقیقاً برابر باشد؟", solved: false },
+        { id: 107, title: "حمله منطقی", category: "Logic", difficulty: "Hard", text: "جهانی با ۵ کشور قوی و ۱ کشور ضعیف.<ul><li>کشور قوی می‌تواند به ضعیف حمله کند، اما بعد خودش ضعیف می‌شود (خسته می‌شود).</li><li>فقط یک حمله در هر زمان رخ می‌دهد.</li><li>اولویت کشورها: ۱. بقا (مورد حمله واقع نشدن) ۲. کسب زمین.</li><li>همه کشورها کاملاً منطقی هستند و آینده را می‌بینند.</li></ul>آیا به اولین کشور ضعیف حمله می‌شود؟", solved: false },
+        { id: 108, title: "خواهر و برادر", category: "Logic", difficulty: "Easy", text: "پسری می‌گوید: «تعداد خواهرهایم با تعداد برادرهایم برابر است.»<br>خواهرش می‌گوید: «تعداد برادرهایم دو برابر تعداد خواهرهایم است.»<br>چند فرزند در این خانواده هستند؟", solved: false },
+        
+        // COMBINATORICS
+        { id: 201, title: "حداکثر قطعات کیک", category: "Combinatorics", difficulty: "Medium", text: "شما دقیقاً ۲۰۲۵ برش مستقیم سرتاسری روی یک کیک استوانه‌ای می‌زنید. بسته به اینکه خطوط چطور همدیگر را قطع کنند، تعداد قطعات متفاوت است. چند <strong>مقدار متمایز</strong> برای تعداد کل قطعات وجود دارد؟", solved: false },
+        { id: 202, title: "دوئل بادکنک آبی", category: "Combinatorics", difficulty: "Medium", text: "تعداد N کودک در زمین هستند. با یک علامت، هر کس به سمت <strong>نزدیک‌ترین همسایه</strong> خود (فاصله‌ها متمایز است) بادکنک پرتاب می‌کند. همه به هدف می‌زنند. در یک بازی، دقیقاً ۱۲ کودک خیس شدند. <strong>حداکثر</strong> تعداد کودکانی (N) که ممکن است بازی کرده باشند چقدر است؟", solved: false },
+        { id: 203, title: "شبکه چراغ‌ها", category: "Combinatorics", difficulty: "Hard", text: "یک شبکه ۴۵×۴۵ از چراغ‌ها خاموش است. هر خانه یک کلید دارد. فشار دادن کلید، وضعیت (روشن/خاموش) <strong>تمام چراغ‌های آن سطر و آن ستون</strong> را تغییر می‌دهد. حداکثر چند چراغ را می‌توان همزمان روشن نگه داشت، بدون اینکه همه آن‌ها روشن باشند؟", solved: false },
+        { id: 204, title: "گاوصندوق ژنرال‌ها", category: "Combinatorics", difficulty: "Hard", text: "هفت ژنرال یک گاوصندوق مشترک دارند. محدودیت‌ها:<ul><li>هر گروه ۴ نفره از ژنرال‌ها باید بتوانند آن را باز کنند.</li><li>هیچ گروه ۳ نفره‌ای نباید بتواند آن را باز کند.</li></ul>شما می‌توانید چند قفل روی گاوصندوق بزنید و کلیدها را توزیع کنید. حداقل تعداد قفل‌های لازم چقدر است و هر ژنرال چند کلید دارد؟", solved: false },
+        { id: 205, title: "کد محرمانه", category: "Combinatorics", difficulty: "Hard", text: "۱۰ ژنرال می‌خواهند یک کد سری (عدد) را به اشتراک بگذارند. هر ۳ نفر باید بتوانند کد را محاسبه کنند، اما هیچ ۲ نفری نباید بتوانند. آن‌ها تصمیم می‌گیرند از چندجمله‌ای $P(x) = ax^2 + bx + c$ استفاده کنند که کد همان $c$ است. آن‌ها اطلاعات را چطور توزیع می‌کنند؟", solved: false },
+        { id: 206, title: "سال‌های مجذور-دوست", category: "Combinatorics", difficulty: "Medium", text: "یک سال «مجذور-دوست» است اگر توان دومِ مجموع دو نیمه‌اش، برابر با خود سال شود.<br>مثال: $2025 \\to (20+25)^2 = 45^2 = 2025$.<br>سال مجذور-دوست بعدی پس از ۳۰۲۵ کدام است؟", solved: false },
+        { id: 207, title: "ارز عجیب", category: "Combinatorics", difficulty: "Hard", text: "کشوری سکه‌هایی با ارزش $1, x, x^2, x^3...$ دارد. با استفاده از <strong>حداکثر ۱۴ سکه از هر نوع</strong>، می‌توان هر مقدار صحیح را پرداخت کرد. عدد گنگ $x$ را بیابید (تقریبی یا منطق آن کافیست).", solved: false },
+        
+        // ALGORITHMS
+        { id: 301, title: "رمزگشایی گاوصندوق خراب", category: "Algorithms", difficulty: "Medium", text: "یک گاوصندوق ۴ کلید دودویی (۰ یا ۱) دارد و خراب است: اگر <strong>هر دو کلید خاصی</strong> درست تنظیم شوند باز می‌شود (مهم نیست بقیه چه باشند)، اما شما نمی‌دانید کدام جفت کلید جادویی است. کوتاه‌ترین دنباله کدهایی که باز شدن در را تضمین کند چیست؟", solved: false },
+        { id: 302, title: "دزدان دریایی و قفل‌ها", category: "Algorithms", difficulty: "Medium", text: "آلیس می‌خواهد حلقه‌ای را داخل جعبه برای باب بفرستد.<ul><li>آلیس قفل و کلید دارد. باب هم قفل و کلید خودش را دارد.</li><li>نمی‌توانند کلیدها را پست کنند.</li><li>پستچی‌ها از هر جعبه‌ای که قفل نباشد دزدی می‌کنند.</li><li>جعبه جا برای چند قفل دارد.</li></ul>آلیس چطور حلقه را امن به باب برساند؟", solved: false },
+        { id: 303, title: "بازی ردیف سکه‌ها", category: "Algorithms", difficulty: "Hard", text: "تعداد زوجی سکه در یک ردیف قرار دارند. بازیکنان نوبتی یکی از سکه‌های دو سر (چپ یا راست) را برمی‌دارند. بازیکن ۱ شروع می‌کند. ثابت کنید بازیکن ۱ همیشه می‌تواند حداقل ۵۰٪ ارزش کل پول‌ها را به دست آورد، مهم نیست بازیکن ۲ چطور بازی کند.", solved: false },
+        { id: 304, title: "یافتن سریع‌ترین اسب‌ها", category: "Algorithms", difficulty: "Hard", text: "۲۵ اسب مسابقه و پیستی با ۵ لاین داریم. کرنومتر نداریم (فقط ترتیب اول تا پنجم مشخص می‌شود). حداقل چند مسابقه لازم است تا <strong>۳ اسب سریع‌تر</strong> را به ترتیب دقیق مشخص کنیم؟", solved: false },
+        { id: 305, title: "استراتژی کلاه زندانیان", category: "Algorithms", difficulty: "Hard", text: "۱۰ زندانی در صف ایستاده‌اند. هر کس کلاه (سیاه/سفید) تمام افراد جلویی را می‌بیند اما کلاه خود را نه. از نفر آخر شروع می‌کنند به گفتن رنگ. اگر رنگ کلاه خودشان را درست بگویند زنده می‌مانند. آن‌ها می‌توانند از قبل نقشه بکشند. نجات جان چند نفر تضمین شده است؟", solved: false },
+        { id: 306, title: "دزدان دریایی طمع‌کار", category: "Algorithms", difficulty: "Hard", text: "۵ دزد دریایی (رتبه ۱ تا ۵، ۱ قوی‌ترین است) ۱۰۰ سکه طلا دارند. رتبه ۱ پیشنهاد تقسیم می‌دهد و همه رأی می‌دهند.<ul><li>اگر رأی‌های بله $\\ge 50\\%$ باشد: پیشنهاد اجرا می‌شود.</li><li>اگر کمتر باشد: رتبه ۱ کشته می‌شود و رتبه ۲ پیشنهاد می‌دهد.</li></ul>اولویت‌ها: ۱. زنده ماندن ۲. طلای بیشتر ۳. کشتن دیگران. رتبه ۱ چه پیشنهادی می‌دهد؟", solved: false },
+        { id: 307, title: "شتر و موز", category: "Algorithms", difficulty: "Hard", text: "۳۰۰۰ موز داریم و بازار ۱۰۰۰ مایل دورتر است. شتر حداکثر ۱۰۰۰ موز حمل می‌کند و به ازای هر مایل ۱ موز می‌خورد. می‌توانید موزها را وسط راه پیاده کنید. حداکثر چند موز را می‌توان به بازار رساند؟", solved: false },
+        
+        // PROBABILITY
+        { id: 401, title: "حدس کلاه (احتمال مشترک)", category: "Probability", difficulty: "Hard", text: "۳ دوست کلاه قرمز یا آبی دارند (۵۰/۵۰). کلاه دیگران را می‌بینند اما مال خود را نه. حق صحبت ندارند. همزمان باید روی کاغذ بنویسند: «قرمز»، «آبی» یا «پاس». تیم برنده می‌شود اگر <strong>حداقل یک نفر درست بنویسد و هیچکس غلط ننویسد</strong>. بهترین استراتژی چیست؟", solved: false },
+        { id: 402, title: "پارادوکس کارت‌های رنگی", category: "Probability", difficulty: "Easy", text: "سه کارت در کلاه است:<ul><li>کارت A: هر دو طرف قرمز.</li><li>کارت B: هر دو طرف آبی.</li><li>کارت C: یک طرف قرمز، یک طرف آبی.</li></ul>کارتی می‌کشید و یک رویش قرمز است. احتمال اینکه روی دیگرش هم قرمز باشد چقدر است؟", solved: false },
+        { id: 403, title: "معمای صندلی هواپیما", category: "Probability", difficulty: "Medium", text: "۱۰۰ مسافر سوار هواپیما می‌شوند (۱۰۰ صندلی).<ul><li>مسافر اول بلیطش را گم کرده و تصادفی می‌نشیند.</li><li>مسافران بعدی اگر جایشان خالی بود می‌نشینند، وگرنه تصادفی جای دیگری می‌نشینند.</li></ul>احتمال اینکه مسافر صدم دقیقاً روی صندلی خودش بنشیند چقدر است؟", solved: false }
+    ];
+
+    let state = {
+        currentFilter: 'all',
+        solvedIds: new Set(JSON.parse(localStorage.getItem('mg_solved')) || [])
+    };
+
+    const feed = document.getElementById('problem-feed');
+    const featuredContainer = document.getElementById('featured-container');
+    const filterContainer = document.getElementById('filter-container');
+    const headerEl = document.getElementById('sticky-header');
+
+    // Scroll Effect
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 20) {
+            headerEl.classList.add('border-stone-200', 'shadow-sm');
+        } else {
+            headerEl.classList.remove('border-stone-200', 'shadow-sm');
+        }
+    });
+
+    // --- RENDER FEATURED PROBLEM (HERO SECTION) ---
+    function renderFeatured() {
+        // Pick random problem
+        const randomProb = problems[Math.floor(Math.random() * problems.length)];
+        const isSolved = state.solvedIds.has(randomProb.id);
+        const iconSvg = getIcon(randomProb.category, randomProb.id, true);
+        
+        // Translating Category for display
+        const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال' };
+        const displayCat = categoryMap[randomProb.category] || randomProb.category;
+
+        // Styling for big impact
+        featuredContainer.innerHTML = `
+            <div class="relative overflow-hidden rounded-2xl bg-stone-900 text-stone-50 shadow-xl p-8 md:p-14 min-h-[320px] flex flex-col justify-center transition-all duration-700 fade-in">
+                <div class="absolute -left-16 -bottom-16 w-80 h-80 text-stone-800 opacity-20 transform -rotate-12 pointer-events-none">
+                    ${iconSvg}
+                </div>
+                
+                <div class="relative z-10">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="px-2 py-1 bg-amber-600 text-[11px] font-bold uppercase tracking-wider rounded text-white shadow-lg">چالش ویژه</span>
+                        <span class="text-xs font-medium text-stone-400 border border-stone-700 px-3 py-1 rounded-full">${displayCat}</span>
+                    </div>
+                    
+                    <h2 class="text-2xl md:text-4xl font-black mb-6 leading-tight tracking-tight text-white drop-shadow-sm">${randomProb.title}</h2>
+                    <div class="text-stone-300 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl font-light problem-desc ${randomProb.id === 101 ? 'dark-quiz' : ''}">
+                        ${randomProb.text}
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-4">
+                        <button onclick="toggle(${randomProb.id})" class="px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md transform active:scale-95 flex items-center gap-2 ${isSolved ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-stone-50 text-stone-900 hover:bg-white hover:shadow-lg'}">
+                            ${isSolved ? '✓ حل شد' : 'علامت زدن به عنوان حل شده'}
+                        </button>
+                         <button onclick="renderFeatured()" class="px-6 py-3 rounded-lg font-medium text-sm text-stone-400 hover:text-white hover:bg-stone-800 transition-colors border border-transparent hover:border-stone-700 flex items-center gap-2">
+                            <span>بعدی</span>
+                            <span>↻</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // --- RENDER MAIN FEED ---
+    function renderFeed(overrideProblems = null) {
+        feed.innerHTML = '';
+        const source = overrideProblems || problems;
+        let visible = 0;
+
+        const sorted = [...source].sort((a, b) => {
+            const aS = state.solvedIds.has(a.id);
+            const bS = state.solvedIds.has(b.id);
+            return aS === bS ? 0 : aS ? 1 : -1;
+        });
+
+        const categoryMap = { 'Logic': 'منطق', 'Combinatorics': 'ترکیبیات', 'Algorithms': 'الگوریتم', 'Probability': 'احتمال' };
+
+        sorted.forEach(p => {
+            if (!overrideProblems && state.currentFilter !== 'all' && p.category !== state.currentFilter) return;
+            visible++;
+            
+            const isSolved = state.solvedIds.has(p.id);
+            const card = document.createElement('div');
+            const displayCat = categoryMap[p.category] || p.category;
+            
+            card.className = `card-transition relative overflow-hidden p-6 rounded-xl border ${isSolved 
+                ? 'bg-stone-100 border-stone-200 opacity-60' 
+                : 'bg-white border-stone-200 shadow-sm hover:border-stone-300'}`;
+
+            const iconSvg = getIcon(p.category, p.id, false);
+
+            card.innerHTML = `
+                <div class="absolute -left-6 -bottom-6 w-32 h-32 opacity-100 transform rotate-0 pointer-events-none transition-transform duration-500 group-hover:scale-110">
+                    ${iconSvg}
+                </div>
+                
+                <div class="relative z-10 pl-4">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-[10px] font-bold text-stone-400 uppercase tracking-wider bg-stone-50 px-2 py-1 rounded border border-stone-100">${displayCat}</span>
+                        ${isSolved ? '<span class="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded">حل شده</span>' : ''}
+                    </div>
+                    <h3 class="font-extrabold text-stone-800 text-xl leading-snug mb-3 ${isSolved ? 'line-through text-stone-400' : ''}">${p.title}</h3>
+                    <div class="text-sm text-stone-600 font-normal leading-relaxed mb-5 max-w-lg problem-desc text-justify">
+                        ${p.text}
+                    </div>
+                    <button onclick="toggle(${p.id})" class="text-xs font-semibold px-4 py-2 rounded-lg border border-stone-200 ${isSolved ? 'text-stone-400 bg-transparent' : 'text-stone-800 bg-white hover:bg-stone-50 hover:border-stone-300'} transition-all">
+                        ${isSolved ? 'علامت زدن به عنوان حل نشده' : 'حل شد'}
+                    </button>
+                </div>
+            `;
+            feed.appendChild(card);
+        });
+
+        document.getElementById('no-results').classList.toggle('hidden', visible > 0);
+        updateStats();
+    }
+
+    function updateStats() {
+        document.getElementById('header-progress').textContent = state.solvedIds.size;
+        document.getElementById('header-total').textContent = problems.length;
+        localStorage.setItem('mg_solved', JSON.stringify([...state.solvedIds]));
+    }
+
+    window.toggle = function(id) {
+        if (state.solvedIds.has(id)) state.solvedIds.delete(id);
+        else state.solvedIds.add(id);
+        
+        renderFeed();
+        
+        // If the featured card matches the toggled ID, re-render it to update button state
+        const featuredTitle = document.querySelector('#featured-container h2');
+        if (featuredTitle) {
+            const currentFeatured = problems.find(p => p.title === featuredTitle.innerText);
+            if (currentFeatured && currentFeatured.id === id) renderFeatured();
+        }
+    };
+
+    filterContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('filter-btn')) {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.className = 'filter-btn shrink-0 text-xs font-medium px-4 py-1.5 rounded-full text-stone-500 hover:bg-stone-200 transition-colors';
+            });
+            e.target.className = 'filter-btn shrink-0 text-xs font-semibold px-4 py-1.5 rounded-full bg-stone-900 text-white transition-colors';
+            state.currentFilter = e.target.dataset.filter;
+            renderFeed();
+        }
+    });
+
+    document.getElementById('random-btn').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        renderFeatured();
+    });
+
+    renderFeatured();
+    renderFeed();
+    </script>
+</body>
+</html>
